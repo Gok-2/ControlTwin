@@ -35,7 +35,12 @@ export default function Home() {
         <h1 className="text-5xl font-mono font-bold text-slate-100 tracking-tight">
           Control<span className="text-cyan-400">Twin</span>
         </h1>
-        <p className="mt-4 text-sm font-mono text-slate-600">
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <span className="text-base font-mono font-bold text-white tracking-widest">Sedef Korkmaz</span>
+          <span className="text-slate-500 text-sm font-mono">&amp;</span>
+          <span className="text-base font-mono font-bold text-white tracking-widest">Göktuğ Usta</span>
+        </div>
+        <p className="mt-3 text-sm font-mono text-slate-600">
           Select a simulation module to continue
         </p>
       </div>
