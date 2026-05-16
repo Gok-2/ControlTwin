@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Robot Control System',
-  description: '2-DOF Computed Torque Control — Real-Time Dashboard',
+  title: 'ControlTwin',
+  description: 'Control Systems Laboratory — Robotics & Intelligent Control',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
