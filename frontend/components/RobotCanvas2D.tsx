@@ -48,10 +48,11 @@ interface Props {
   mode: 'demo' | 'fk' | 'ik'
   angles?: number[]
   target?: { x: number; y: number; phi?: number }
+  customLinkLengths?: number[]
   onEEUpdate?: (pos: { x: number; y: number }, angles: number[]) => void
 }
 
-export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate }: Props) {
+export default function RobotCanvas2D({ model, mode, angles, target, customLinkLengths, onEEUpdate }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef    = useRef<number>(0)
   const tRef      = useRef(0)
@@ -205,7 +206,9 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const links = LINK_LENGTHS[model]
+    const links = customLinkLengths && customLinkLengths.length === LINK_LENGTHS[model].length
+      ? customLinkLengths
+      : LINK_LENGTHS[model]
     let lastX = NaN, lastY = NaN
 
     const loop = () => {
@@ -226,7 +229,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
       } else if (mode === 'ik' && target) {
         let sol: number[] | null = null
         if (links.length === 2) sol = ik2R(links[0], links[1], target.x, target.y)
-        else                    sol = ik3R(links[0], links[1], links[2], target.x, target.y, target.phi ?? 0)
+        else if (links.length >= 3) sol = ik3R(links[0], links[1], links[2], target.x, target.y, target.phi ?? 0)
         joints = sol ?? Array(links.length).fill(0)
       } else {
         // Demo trajectory
@@ -248,7 +251,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
 
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [model, mode, angles, target, drawFrame, onEEUpdate])
+  }, [model, mode, angles, target, customLinkLengths, drawFrame, onEEUpdate])
 
   return <canvas ref={canvasRef} className="w-full h-full block" />
 }
