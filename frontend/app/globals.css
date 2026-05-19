@@ -11,11 +11,26 @@
 html, body {
   height: 100%;
   overflow: hidden;
+}
+
+/* Dark theme (default) */
+html {
   background-color: #0a0a0f;
   color: #e2e8f0;
 }
 
-/* Custom range slider — transparent track; visual elements drawn in DOM */
+/* Light theme */
+html.light {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+body {
+  background-color: inherit;
+  color: inherit;
+}
+
+/* Custom range slider */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
@@ -26,14 +41,30 @@ input[type='range'] {
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 1px;
-  height: 1px;
-  background: transparent;
+  width: 12px;
+  height: 12px;
+  background: #22d3ee;
+  border-radius: 50%;
 }
 
 input[type='range']::-moz-range-thumb {
-  width: 1px;
-  height: 1px;
-  background: transparent;
+  width: 12px;
+  height: 12px;
+  background: #22d3ee;
   border: none;
+  border-radius: 50%;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 3px;
+  background: #1e293b;
+  border-radius: 2px;
+}
+
+html.light input[type='range']::-webkit-slider-runnable-track {
+  background: #cbd5e1;
+}
+
+html.light input[type='range']::-webkit-slider-thumb {
+  background: #0891b2;
 }
