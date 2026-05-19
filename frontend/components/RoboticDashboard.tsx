@@ -4,9 +4,10 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import RobotCanvas2D, { type RobotModel, LINK_LENGTHS, ik2R, ik3R } from './RobotCanvas2D'
 import WorkspaceSurface from './WorkspaceSurface'
+import DHTable from './DHTable'
 import type { RobotType } from './WorkspaceSurface'
 
-/* ── Robot catalogue ─────────────────────────────────────────────────────── */
+// ── Robot catalogue ───────────────────────────────────────────────────────────
 
 const ROBOTS: {
   id: RobotModel
@@ -16,35 +17,37 @@ const ROBOTS: {
   dof: number
   wsType: RobotType
 }[] = [
-  { id: '2r',    label: '2R Planar',  sub: 'Revolute–Revolute',           links: 'L₁=1.50 · L₂=1.10 m',              dof: 2, wsType: '2dof'  },
-  { id: '3r',    label: '3R Planar',  sub: 'Revolute–Revolute–Revolute',   links: 'L₁=1.20 · L₂=0.85 · L₃=0.55 m',   dof: 3, wsType: '3dof'  },
-  { id: 'scara', label: 'SCARA',      sub: 'Selective Compliance',         links: 'L₁=0.65 · L₂=0.48 m',              dof: 2, wsType: 'scara' },
+  { id: '2r',    label: '2R Planar',  sub: 'Revolute–Revolute',         links: 'L₁=1.50 · L₂=1.10 m',            dof: 2, wsType: '2dof'  },
+  { id: '3r',    label: '3R Planar',  sub: 'Revolute–Revolute–Revolute', links: 'L₁=1.20 · L₂=0.85 · L₃=0.55 m', dof: 3, wsType: '3dof'  },
+  { id: 'scara', label: 'SCARA',      sub: 'Selective Compliance',       links: 'L₁=0.65 · L₂=0.48 m',            dof: 2, wsType: 'scara' },
 ]
 
 type KinMode = 'demo' | 'fk' | 'ik'
 
-/* ── Component ───────────────────────────────────────────────────────────── */
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function RoboticDashboard() {
   const router = useRouter()
 
-  const [model,        setModel]        = useState<RobotModel>('2r')
-  const [kinMode,      setKinMode]      = useState<KinMode>('demo')
-  const [showWorkspace,setShowWorkspace]= useState(false)
+  const [model,         setModel]         = useState<RobotModel>('2r')
+  const [kinMode,       setKinMode]       = useState<KinMode>('demo')
+  const [showWorkspace, setShowWorkspace] = useState(false)
 
-  // FK: joint angles in degrees
+  // FK: joint angles in degrees (relative, same convention as fkPlanar)
   const [fkDeg, setFkDeg] = useState([45, 60, 30])
-  // IK: target position
-  const [ikTarget, setIkTarget] = useState({ x: 1.8, y: 1.0, phi: 0.0 })
-  // IK solution valid?
-  const [ikValid, setIkValid] = useState(true)
 
-  const [eePos,    setEePos]    = useState({ x: 0, y: 0 })
+  // IK: target + solution
+  const [ikTarget, setIkTarget] = useState({ x: 1.8, y: 1.0, phi: 0.0 })
+  const [ikValid,  setIkValid]  = useState(true)
   const [ikAngles, setIkAngles] = useState<number[]>([])
+
+  // EE readout + demo mode angles (from canvas callback)
+  const [eePos,       setEePos]       = useState({ x: 0, y: 0 })
+  const [demoAngles,  setDemoAngles]  = useState<number[]>([0.4, 0.6])
 
   const robot = ROBOTS.find(r => r.id === model)!
 
-  // Validate IK on target change
+  // Validate IK target when it changes
   useEffect(() => {
     const links = LINK_LENGTHS[model]
     let sol: number[] | null = null
@@ -56,16 +59,26 @@ export default function RoboticDashboard() {
 
   const handleEEUpdate = useCallback((pos: { x: number; y: number }, angles: number[]) => {
     setEePos(pos)
-    if (kinMode === 'ik') setIkAngles(angles)
+    if (kinMode === 'demo') setDemoAngles(angles)
+    if (kinMode === 'ik')   setIkAngles(angles)
   }, [kinMode])
 
   const selectModel = (id: RobotModel) => {
-    setModel(id); setKinMode('demo'); setFkDeg([45, 60, 30])
+    setModel(id)
+    setKinMode('demo')
+    setFkDeg([45, 60, 30])
+    setIkTarget({ x: 1.8, y: 1.0, phi: 0.0 })
   }
 
+  // Angles passed to DHTable — use the authoritative source for each mode
   const fkRad = fkDeg.map(d => d * Math.PI / 180)
 
-  /* ── render ──────────────────────────────────────────────────────────── */
+  const dhAngles =
+    kinMode === 'fk'   ? fkRad.slice(0, robot.dof) :
+    kinMode === 'ik'   ? ikAngles :
+    /* demo */           demoAngles.slice(0, robot.dof)
+
+  /* ── render ─────────────────────────────────────────────────────────────── */
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0a0a0f]">
@@ -96,7 +109,7 @@ export default function RoboticDashboard() {
       {/* Content row */}
       <div className="flex flex-1 min-h-0">
 
-        {/* ── VS Code–style sidebar ─────────────────────────────────────── */}
+        {/* ── Sidebar ────────────────────────────────────────────────────── */}
         <div className="w-56 shrink-0 bg-[#0d1117] border-r border-slate-800/80 flex flex-col select-none">
 
           {/* Robot list */}
@@ -150,17 +163,17 @@ export default function RoboticDashboard() {
               ))}
             </div>
 
-            {/* DEMO panel */}
+            {/* DEMO */}
             {kinMode === 'demo' && (
               <div className="space-y-2">
                 <p className="text-[9px] font-mono text-slate-600 leading-relaxed">
-                  Autonomous sinusoidal trajectory. Switch to FK or IK for interactive control.
+                  Autonomous sinusoidal trajectory. DH table updates live.
                 </p>
                 <EEReadout label="EE" pos={eePos} />
               </div>
             )}
 
-            {/* FK panel */}
+            {/* FK */}
             {kinMode === 'fk' && (
               <div className="space-y-3">
                 {Array.from({ length: robot.dof }, (_, i) => (
@@ -175,7 +188,7 @@ export default function RoboticDashboard() {
               </div>
             )}
 
-            {/* IK panel */}
+            {/* IK */}
             {kinMode === 'ik' && (
               <div className="space-y-2">
                 <NumInput label="Target X (m)" value={ikTarget.x} step={0.05}
@@ -210,14 +223,14 @@ export default function RoboticDashboard() {
             )}
           </div>
 
-          {/* Link lengths footer */}
+          {/* Link lengths */}
           <div className="px-3 py-2 border-t border-slate-800/60 shrink-0">
             <div className="text-[8px] font-mono text-slate-700 leading-relaxed">{robot.links}</div>
           </div>
         </div>
 
-        {/* ── Main canvas ───────────────────────────────────────────────── */}
-        <div className="relative flex-1 h-full">
+        {/* ── 2D Canvas ─────────────────────────────────────────────────── */}
+        <div className="relative flex-1 h-full min-w-0">
           <RobotCanvas2D
             key={model}
             model={model}
@@ -227,7 +240,6 @@ export default function RoboticDashboard() {
             onEEUpdate={handleEEUpdate}
           />
 
-          {/* Corner overlay */}
           <div className="absolute top-3 left-3 pointer-events-none">
             <div className="text-[9px] font-mono tracking-widest text-cyan-400">{robot.label.toUpperCase()}</div>
             <div className="text-[8px] font-mono text-slate-700 mt-0.5">
@@ -235,9 +247,18 @@ export default function RoboticDashboard() {
             </div>
           </div>
         </div>
+
+        {/* ── DH Panel ──────────────────────────────────────────────────── */}
+        <div className="w-80 shrink-0 h-full overflow-hidden">
+          <DHTable
+            model={model}
+            angles={dhAngles}
+            robotLabel={`${robot.label} · ${robot.dof}-DOF`}
+          />
+        </div>
       </div>
 
-      {/* ── Workspace modal ───────────────────────────────────────────────── */}
+      {/* ── Workspace modal ────────────────────────────────────────────────── */}
       {showWorkspace && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
@@ -265,9 +286,11 @@ export default function RoboticDashboard() {
   )
 }
 
-/* ── Sub-components ───────────────────────────────────────────────────────── */
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
-function JointSlider({ index, value, onChange }: { index: number; value: number; onChange: (v: number) => void }) {
+function JointSlider({ index, value, onChange }: {
+  index: number; value: number; onChange: (v: number) => void
+}) {
   return (
     <div>
       <div className="flex justify-between text-[9px] font-mono text-slate-500 mb-0.5">
@@ -288,7 +311,9 @@ function JointSlider({ index, value, onChange }: { index: number; value: number;
   )
 }
 
-function NumInput({ label, value, step, onChange }: { label: string; value: number; step: number; onChange: (v: number) => void }) {
+function NumInput({ label, value, step, onChange }: {
+  label: string; value: number; step: number; onChange: (v: number) => void
+}) {
   return (
     <div>
       <div className="text-[9px] font-mono text-slate-500 mb-0.5">{label}</div>
