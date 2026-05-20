@@ -78,7 +78,7 @@ export default function RoboticDashboard() {
     'scara': [0.65, 0.48, 0.30],   // R1, R2, P (Z stroke)
   })
   const [showAddPanel, setShowAddPanel]   = useState(false)
-  const [newRobotName, setNewRobotName]   = useState('Özel Robot')
+  const [newRobotName, setNewRobotName]   = useState('Custom Robot')
   const [newJoints, setNewJoints]         = useState<CustomJoint[]>([
     { type: 'R', length: 1.0 },
     { type: 'R', length: 0.8 },
@@ -127,7 +127,7 @@ export default function RoboticDashboard() {
     const id = `custom_${Date.now()}`
     const robot: CustomRobot = {
       kind: 'custom', id,
-      label: newRobotName || 'Özel Robot',
+      label: newRobotName || 'Custom Robot',
       joints: newJoints.map(j => ({ ...j })),
       dof: newJoints.length,
     }
@@ -135,7 +135,7 @@ export default function RoboticDashboard() {
     setSelectedId(id)
     setFk3DDeg(newJoints.map(() => 0))
     setShowAddPanel(false)
-    setNewRobotName('Özel Robot')
+    setNewRobotName('Custom Robot')
     setNewJoints([{ type: 'R', length: 1.0 }, { type: 'R', length: 0.8 }])
   }
 
@@ -194,11 +194,11 @@ export default function RoboticDashboard() {
             onClick={() => router.push('/')}
             className="text-xs font-mono text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
           >
-            ← ANA SAYFA
+            ← HOME
           </button>
           <span className="text-slate-300 dark:text-slate-800">|</span>
           <span className="text-sm font-mono font-bold tracking-widest text-slate-700 dark:text-slate-300">
-            ROBOTİK SİSTEMLER
+            ROBOTIC SYSTEMS
           </span>
         </div>
 
@@ -212,7 +212,7 @@ export default function RoboticDashboard() {
               onClick={() => setViewMode3D(v => !v)}
               className={`relative w-10 h-[22px] rounded-full transition-colors duration-200 focus:outline-none
                 ${viewMode3D ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-700'}`}
-              title={viewMode3D ? '3D görünüm aktif — 2D için tıkla' : '2D görünüm aktif — 3D için tıkla'}
+              title={viewMode3D ? '3D view active — click for 2D' : '2D view active — click for 3D'}
             >
               <span className={`absolute top-[3px] left-[3px] w-4 h-4 bg-white rounded-full shadow-sm
                                 transition-transform duration-200 ${viewMode3D ? 'translate-x-[18px]' : 'translate-x-0'}`} />
@@ -230,7 +230,7 @@ export default function RoboticDashboard() {
                          hover:border-cyan-400/60 dark:hover:border-cyan-500/40
                          px-3 py-1 rounded transition-all"
             >
-              WORKSPACE YÜZEYİ ↗
+              WORKSPACE SURFACE ↗
             </button>
           )}
         </div>
@@ -243,8 +243,8 @@ export default function RoboticDashboard() {
                         border-r border-slate-200 dark:border-slate-800/80
                         flex flex-col select-none overflow-y-auto">
 
-          {/* Manipülatörler */}
-          <SideSection label="MANİPÜLATÖRLER">
+          {/* Manipulators */}
+          <SideSection label="MANIPULATORS">
             <div className="space-y-0.5">
               {allRobots.map(r => (
                 <button
@@ -260,7 +260,7 @@ export default function RoboticDashboard() {
                   <div>
                     <div className="font-semibold text-[13px]">{r.label}</div>
                     <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      {r.dof}-DOF · {r.kind === 'custom' ? 'Özel Robot' : (r as StandardRobot).sub}
+                      {r.dof}-DOF · {r.kind === 'custom' ? 'Custom Robot' : (r as StandardRobot).sub}
                     </div>
                   </div>
                 </button>
@@ -271,27 +271,27 @@ export default function RoboticDashboard() {
           <Divider />
 
           {/* Robot Ekle */}
-          <SideSection label="ROBOT EKLE" collapsible open={showAddPanel} onToggle={() => setShowAddPanel(v => !v)}>
+          <SideSection label="ADD ROBOT" collapsible open={showAddPanel} onToggle={() => setShowAddPanel(v => !v)}>
             {showAddPanel && (
               <div className="space-y-3">
                 <div>
-                  <div className="text-[10px] font-mono text-slate-500 mb-1">Robot Adı</div>
+                  <div className="text-[10px] font-mono text-slate-500 mb-1">Robot Name</div>
                   <input
                     value={newRobotName}
                     onChange={e => setNewRobotName(e.target.value)}
                     className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700
                                rounded px-2 py-1.5 text-xs font-mono text-slate-800 dark:text-slate-200
                                focus:outline-none focus:border-cyan-500/60"
-                    placeholder="Özel Robot"
+                    placeholder="Custom Robot"
                   />
                 </div>
                 <div>
-                  <div className="text-[10px] font-mono text-slate-500 mb-1.5">Eklemler ({newJoints.length}/5)</div>
+                  <div className="text-[10px] font-mono text-slate-500 mb-1.5">Joints ({newJoints.length}/5)</div>
                   <div className="space-y-2">
                     {newJoints.map((joint, i) => (
                       <div key={i} className="bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded p-2 space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-mono text-slate-700 dark:text-slate-300 font-semibold">Eklem {i + 1}</span>
+                          <span className="text-[11px] font-mono text-slate-700 dark:text-slate-300 font-semibold">Joint {i + 1}</span>
                           {newJoints.length > 1 && (
                             <button onClick={() => setNewJoints(prev => prev.filter((_, idx) => idx !== i))}
                               className="text-[10px] font-mono text-slate-400 dark:text-slate-600 hover:text-red-500 transition-colors">✕</button>
@@ -311,7 +311,7 @@ export default function RoboticDashboard() {
                         </div>
                         <div>
                           <div className="flex justify-between text-[9px] font-mono text-slate-500 mb-0.5">
-                            <span>Kol Uzunluğu (m)</span>
+                            <span>Link Length (m)</span>
                             <span className="text-cyan-600 dark:text-cyan-400">{joint.length.toFixed(2)}</span>
                           </div>
                           <input type="range" min="0.1" max="2.0" step="0.05" value={joint.length}
@@ -327,14 +327,14 @@ export default function RoboticDashboard() {
                     <button onClick={() => setNewJoints(prev => [...prev, { type: 'R', length: 0.5 }])}
                       className="w-full mt-2 text-[11px] font-mono py-1.5 border border-dashed border-slate-300 dark:border-slate-700 text-slate-500
                                  hover:border-cyan-400 dark:hover:border-cyan-500/50 hover:text-cyan-600 dark:hover:text-cyan-400 rounded transition-all">
-                      + Eklem Ekle
+                      + Add Joint
                     </button>
                   )}
                 </div>
                 <button onClick={addRobot}
                   className="w-full text-xs font-mono py-2 rounded bg-cyan-500/15 border border-cyan-400/40 dark:border-cyan-500/30
                              text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/25 hover:text-cyan-600 dark:hover:text-cyan-200 transition-all font-semibold">
-                  Robotu Ekle →
+                  Add Robot →
                 </button>
               </div>
             )}
@@ -342,13 +342,13 @@ export default function RoboticDashboard() {
 
           <Divider />
 
-          {/* Robot Özelleştir — always visible for standard robots */}
+          {/* Customize Robot — always visible for standard robots */}
           {isStandard && standardRobot && (
             <>
-              <SideSection label="ROBOT ÖZELLEŞTİR">
+              <SideSection label="CUSTOMIZE ROBOT">
                 <div className="space-y-3">
                   <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
-                    Parametreleri değiştirin — robot canlı güncellenir.
+                    Adjust parameters — robot updates live.
                   </p>
                   {allLinksStd.map((len, i) => {
                     const isP = getJt(i) === 'P'
@@ -360,8 +360,8 @@ export default function RoboticDashboard() {
                         <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
                           <span>
                             {isP
-                              ? <><span className="text-slate-400 dark:text-slate-600">d</span><sub>{i + 1}</sub> — Z Stroku</>
-                              : <><span className="text-slate-400 dark:text-slate-600">a</span><sub>{i + 1}</sub> — Kol {i + 1}</>
+                              ? <><span className="text-slate-400 dark:text-slate-600">d</span><sub>{i + 1}</sub> — Z Stroke</>
+                              : <><span className="text-slate-400 dark:text-slate-600">a</span><sub>{i + 1}</sub> — Link {i + 1}</>
                             }
                           </span>
                           <span className="text-cyan-600 dark:text-cyan-400">{len.toFixed(2)} m</span>
@@ -395,7 +395,7 @@ export default function RoboticDashboard() {
                     onClick={() => setCustomLinks(prev => ({ ...prev, [standardRobot.id]: [...standardRobot.defaultLinks] }))}
                     className="w-full text-[10px] font-mono py-1 border border-slate-200 dark:border-slate-800 text-slate-500
                                hover:text-slate-700 dark:hover:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 rounded transition-all">
-                    Sıfırla
+                    Reset
                   </button>
                 </div>
               </SideSection>
@@ -404,7 +404,7 @@ export default function RoboticDashboard() {
           )}
 
           {/* Kinematik */}
-          <SideSection label="KİNEMATİK">
+          <SideSection label="KINEMATICS">
             <div className="space-y-3">
 
               {/* Mode selector — standard */}
@@ -445,9 +445,9 @@ export default function RoboticDashboard() {
                   {kinMode === 'demo' && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
-                        {viewMode3D ? '3D demo yörünge — fare ile döndürün.' : 'Sinüsoidal demo yörünge. FK veya IK\'ya geçerek interaktif kontrol yapın.'}
+                        {viewMode3D ? '3D demo trajectory — rotate with mouse.' : 'Sinusoidal demo trajectory. Switch to FK or IK for interactive control.'}
                       </p>
-                      {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
+                      {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="END EFFECTOR" pos={eePos} />}
                     </div>
                   )}
                   {kinMode === 'fk' && (
@@ -468,17 +468,17 @@ export default function RoboticDashboard() {
                           />
                         )
                       })}
-                      {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="UÇ KONUM" pos={eePos} />}
+                      {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="EE POSITION" pos={eePos} />}
                     </div>
                   )}
                   {kinMode === 'ik' && !viewMode3D && (
                     <div className="space-y-2">
-                      <NumInput label="Hedef X (m)" value={ikTarget.x} step={0.05}
+                      <NumInput label="Target X (m)" value={ikTarget.x} step={0.05}
                         onChange={v => setIkTarget(p => ({ ...p, x: v }))} />
-                      <NumInput label="Hedef Y (m)" value={ikTarget.y} step={0.05}
+                      <NumInput label="Target Y (m)" value={ikTarget.y} step={0.05}
                         onChange={v => setIkTarget(p => ({ ...p, y: v }))} />
                       {rLinksFor2D.length >= 3 && (
-                        <NumInput label="UE φ (rad)" value={ikTarget.phi} step={0.05}
+                        <NumInput label="EE φ (rad)" value={ikTarget.phi} step={0.05}
                           onChange={v => setIkTarget(p => ({ ...p, phi: v }))} />
                       )}
                       <div className={`text-[10px] font-mono px-2 py-1.5 rounded border ${
@@ -486,7 +486,7 @@ export default function RoboticDashboard() {
                           ? 'border-cyan-400/40 text-cyan-700 dark:text-cyan-400 bg-cyan-500/5'
                           : 'border-red-400/40 text-red-600 dark:text-red-400 bg-red-500/5'
                       }`}>
-                        {ikValid ? '✓ Çözüm bulundu' : '✗ Çalışma uzayı dışında'}
+                        {ikValid ? '✓ Solution found' : '✗ Out of workspace'}
                       </div>
                       {/* Z slider for robots with prismatic joints */}
                       {standardRobot.jointTypes?.some(t => t === 'P') && (
@@ -502,7 +502,7 @@ export default function RoboticDashboard() {
                       )}
                       {ikValid && (
                         <div className="pt-1 border-t border-slate-100 dark:border-slate-800 space-y-1">
-                          <div className="text-[10px] font-mono text-slate-500 mb-1">EKLEM AÇILARI</div>
+                          <div className="text-[10px] font-mono text-slate-500 mb-1">JOINT ANGLES</div>
                           {ikAngles.map((a, i) => (
                             <div key={i} className="text-xs font-mono text-slate-600 dark:text-slate-400">
                               q{i + 1}: <span className="text-violet-600 dark:text-violet-400">{(a * 180 / Math.PI).toFixed(1)}°</span>
@@ -521,7 +521,7 @@ export default function RoboticDashboard() {
                 <div className="space-y-3">
                   {kinMode === 'demo' && (
                     <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
-                      {viewMode3D ? '3D demo — fare ile döndürün.' : '2D demo yörünge. FK seçerek eklem açılarını kontrol edin.'}
+                      {viewMode3D ? '3D demo — rotate with mouse.' : '2D demo trajectory. Select FK to control joint angles.'}
                     </p>
                   )}
                   {kinMode === 'fk' && customRobot.joints.map((joint, i) => (
@@ -529,7 +529,7 @@ export default function RoboticDashboard() {
                       value={fk3DDeg[i] ?? 0}
                       onChange={v => setFk3DDeg(prev => { const a = [...prev]; a[i] = v; return a })} />
                   ))}
-                  {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
+                  {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="END EFFECTOR" pos={eePos} />}
                 </div>
               )}
             </div>
@@ -564,7 +564,7 @@ export default function RoboticDashboard() {
                 onEEUpdate={handleEEUpdate2D}
               />
               <CanvasLabel title={standardRobot.label.toUpperCase()}
-                subtitle={kinMode === 'demo' ? 'DEMO YÖRÜNGE' : kinMode === 'fk' ? 'İLERİ KİNEMATİK' : 'TERS KİNEMATİK'} />
+                subtitle={kinMode === 'demo' ? 'DEMO TRAJECTORY' : kinMode === 'fk' ? 'FORWARD KINEMATICS' : 'INVERSE KINEMATICS'} />
             </>
           )}
 
@@ -579,7 +579,7 @@ export default function RoboticDashboard() {
                 onEEUpdate={handleEEUpdate3D}
               />
               <CanvasLabel title={standardRobot.label.toUpperCase()}
-                subtitle={kinMode === 'demo' ? '3D DEMO — fare ile döndürün' : '3D İLERİ KİNEMATİK — fare ile döndürün'} />
+                subtitle={kinMode === 'demo' ? '3D DEMO — rotate with mouse' : '3D FORWARD KINEMATICS — rotate with mouse'} />
             </>
           )}
 
@@ -594,7 +594,7 @@ export default function RoboticDashboard() {
                 onEEUpdate={handleEEUpdate3D}
               />
               <CanvasLabel title={customRobot.label.toUpperCase()}
-                subtitle="3D İNTERAKTİF — fare ile döndürün" />
+                subtitle="3D INTERACTIVE — rotate with mouse" />
             </>
           )}
 
@@ -610,7 +610,7 @@ export default function RoboticDashboard() {
                 onEEUpdate={handleEEUpdate2D}
               />
               <CanvasLabel title={customRobot.label.toUpperCase()}
-                subtitle="2D PLANAR GÖRÜNÜM" />
+                subtitle="2D PLANAR VIEW" />
             </>
           )}
         </div>
@@ -623,12 +623,12 @@ export default function RoboticDashboard() {
           <div className="w-[82vw] h-[82vh] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-slate-700/80 rounded-xl flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <span className="text-xs font-mono text-slate-600 dark:text-slate-300 tracking-widest">
-                WORKSPACE YÜZEYİ — {standardRobot.label.toUpperCase()}
+                WORKSPACE SURFACE — {standardRobot.label.toUpperCase()}
               </span>
               <button onClick={() => setShowWorkspace(false)}
                 className="text-xs font-mono text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors
                            px-2 py-0.5 border border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 rounded">
-                ✕ KAPAT
+                ✕ CLOSE
               </button>
             </div>
             <div className="flex-1 min-h-0 p-3">
@@ -679,7 +679,7 @@ function JointSlider({ index, value, onChange }: { index: number; value: number;
   return (
     <div>
       <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-0.5">
-        <span>q{index + 1} (derece)</span>
+        <span>q{index + 1} (deg)</span>
         <span className="text-cyan-600 dark:text-cyan-400">{value.toFixed(1)}°</span>
       </div>
       <input type="range" min="-180" max="180" step="0.5" value={value}
@@ -698,7 +698,7 @@ function PrismaticSlider({ index, maxLen, value, onChange }: {
   return (
     <div>
       <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-0.5">
-        <span>q{index + 1} — Z Stroku (m)</span>
+        <span>q{index + 1} — Z Stroke (m)</span>
         <span className="text-violet-600 dark:text-violet-400">{value.toFixed(3)} m</span>
       </div>
       <input type="range" min="0" max={maxLen} step="0.01" value={value}
@@ -756,7 +756,7 @@ function EEReadout({ label, pos }: { label: string; pos: { x: number; y: number 
 function EEReadout3D({ pos }: { pos: { x: number; y: number; z: number } }) {
   return (
     <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-      <div className="text-[10px] font-mono text-slate-500 mb-1">UÇ ETKİLEYİCİ (3D)</div>
+      <div className="text-[10px] font-mono text-slate-500 mb-1">END EFFECTOR (3D)</div>
       <div className="text-xs font-mono text-slate-600 dark:text-slate-400">x: <span className="text-cyan-600 dark:text-cyan-400">{pos.x.toFixed(3)}</span> m</div>
       <div className="text-xs font-mono text-slate-600 dark:text-slate-400">y: <span className="text-cyan-600 dark:text-cyan-400">{pos.y.toFixed(3)}</span> m</div>
       <div className="text-xs font-mono text-slate-600 dark:text-slate-400">z: <span className="text-cyan-600 dark:text-cyan-400">{pos.z.toFixed(3)}</span> m</div>

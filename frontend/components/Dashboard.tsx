@@ -278,7 +278,7 @@ export default function Dashboard() {
                 : 'bg-orange-500/15 text-orange-400 border border-orange-500/40 hover:bg-orange-500/25 hover:border-orange-400/60 active:scale-[0.98]'
               }`}
           >
-            {running ? 'HESAPLANIYOR...' : 'SİMÜLASYON ÇALIŞTIR'}
+            {running ? 'COMPUTING...' : 'RUN SIMULATION'}
           </button>
         </div>
       </div>
@@ -288,43 +288,43 @@ export default function Dashboard() {
         {!result ? (
           <div className="h-full flex flex-col items-center justify-center gap-3">
             <div className="text-[10px] font-mono text-slate-400 dark:text-slate-700 tracking-widest">
-              SİMÜLASYON HENÜZ ÇALIŞTIRILMADI
+              SIMULATION NOT YET RUN
             </div>
             <div className="text-[9px] font-mono text-slate-400 dark:text-slate-800">
-              Parametreleri ayarlayın ve &ldquo;SİMÜLASYON ÇALIŞTIR&rdquo; butonuna basın
+              Adjust parameters and click &ldquo;RUN SIMULATION&rdquo;
             </div>
           </div>
         ) : (
           <div className="p-4 space-y-4">
 
             {/* Chart 1: Joint Angles */}
-            <ChartPanel title="Eklem Açıları" subtitle="q (rad)">
+            <ChartPanel title="Joint Angles" subtitle="q (rad)">
               <PlotlyChart
                 divId="chart-angles"
                 traces={traces!.angles}
-                title="Eklem Açıları — Gerçek vs İstenen"
+                title="Joint Angles — Actual vs Desired"
                 yLabel="q (rad)"
                 isDark={isDark}
               />
             </ChartPanel>
 
             {/* Chart 2: Tracking Errors */}
-            <ChartPanel title="Takip Hatası" subtitle="e = q_d − q (rad)">
+            <ChartPanel title="Tracking Error" subtitle="e = q_d − q (rad)">
               <PlotlyChart
                 divId="chart-errors"
                 traces={traces!.errors}
-                title="Takip Hatası  |  eᵢ = q_dᵢ − qᵢ"
+                title="Tracking Error  |  eᵢ = q_dᵢ − qᵢ"
                 yLabel="e (rad)"
                 isDark={isDark}
               />
             </ChartPanel>
 
             {/* Chart 3: Control Torques */}
-            <ChartPanel title="Kontrol Momenti" subtitle="τ (N·m)">
+            <ChartPanel title="Control Torque" subtitle="τ (N·m)">
               <PlotlyChart
                 divId="chart-torques"
                 traces={traces!.torques}
-                title="Kontrol Momentleri  |  τ = M(q)·v + Vm(q,q̇)·q̇ + Fd·q̇"
+                title="Control Torques  |  τ = M(q)·v + Vm(q,q̇)·q̇ + Fd·q̇"
                 yLabel="τ (N·m)"
                 isDark={isDark}
               />

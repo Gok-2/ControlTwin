@@ -42,7 +42,7 @@ export default function Home() {
             ? 'border-slate-700 bg-slate-900/60 hover:border-cyan-500/60 text-slate-400 hover:text-cyan-300'
             : 'border-slate-300 bg-white/80 hover:border-cyan-500/60 text-slate-500 hover:text-cyan-600 shadow-sm'
           }`}
-        title={isDark ? 'Açık temaya geç' : 'Koyu temaya geç'}
+        title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
       >
         {isDark ? (
           /* Sun icon */
@@ -76,7 +76,7 @@ export default function Home() {
           </span>
         </div>
         <p className={`mt-3 text-sm font-mono ${isDark ? 'text-slate-600' : 'text-slate-500'}`}>
-          Devam etmek için bir simülasyon modülü seçin
+          Select a simulation module to continue
         </p>
       </div>
 
@@ -111,7 +111,7 @@ export default function Home() {
           </div>
 
           <p className={`text-xs font-mono tracking-widest mb-2 ${isDark ? 'text-cyan-500/50' : 'text-cyan-500/70'}`}>
-            MODÜL 01
+            MODULE 01
           </p>
           <h2 className={`text-xl font-mono font-bold mb-3 transition-colors ${
             isDark ? 'text-slate-100 group-hover:text-cyan-300' : 'text-slate-800 group-hover:text-cyan-600'
@@ -119,14 +119,14 @@ export default function Home() {
             Robotic
           </h2>
           <p className={`text-sm font-mono leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-            Çok serbestlik dereceli robot manipülatörler. 3D çalışma uzayı görselleştirme,
-            FK/IK kontrolü ve özelleştirilebilir eklem yapısı.
+            Multi-degree-of-freedom robot manipulators. 3D workspace visualization,
+            FK/IK control, and customizable joint structure.
           </p>
 
           <div className={`mt-8 flex items-center gap-2 text-xs font-mono transition-colors ${
             isDark ? 'text-cyan-600/50 group-hover:text-cyan-400/80' : 'text-cyan-500/60 group-hover:text-cyan-500'
           }`}>
-            <span>MODÜLE GİR</span>
+            <span>ENTER MODULE</span>
             <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
           </div>
         </button>
@@ -159,7 +159,7 @@ export default function Home() {
           </div>
 
           <p className={`text-xs font-mono tracking-widest mb-2 ${isDark ? 'text-orange-500/50' : 'text-orange-500/70'}`}>
-            MODÜL 02
+            MODULE 02
           </p>
           <h2 className={`text-xl font-mono font-bold mb-3 transition-colors ${
             isDark ? 'text-slate-100 group-hover:text-orange-300' : 'text-slate-800 group-hover:text-orange-500'
@@ -167,14 +167,14 @@ export default function Home() {
             Intelligent Control
           </h2>
           <p className={`text-sm font-mono leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-            Gerçek zamanlı 2-DOF hesaplamalı tork kontrolü. Canlı hata takibi,
-            interaktif kazanç ayarı ve WebSocket telemetrisi.
+            Real-time 2-DOF computed torque control. Live error tracking,
+            interactive gain tuning, and WebSocket telemetry.
           </p>
 
           <div className={`mt-8 flex items-center gap-2 text-xs font-mono transition-colors ${
             isDark ? 'text-orange-600/50 group-hover:text-orange-400/80' : 'text-orange-500/60 group-hover:text-orange-500'
           }`}>
-            <span>MODÜLE GİR</span>
+            <span>ENTER MODULE</span>
             <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
           </div>
         </button>
