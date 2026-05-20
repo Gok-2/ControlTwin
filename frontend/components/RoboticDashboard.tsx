@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import RobotCanvas2D, { type RobotModel, LINK_LENGTHS, ik2R, ik3R } from './RobotCanvas2D'
 import RobotCanvas3D, { type CustomJoint } from './RobotCanvas3D'
 import WorkspaceSurface from './WorkspaceSurface'
-import type { RobotType } from './WorkspaceSurface'
 import { useTheme } from '@/context/ThemeContext'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
@@ -18,7 +17,6 @@ interface StandardRobot {
   label: string
   sub: string
   dof: number
-  wsType: RobotType
   defaultLinks: number[]
   jointTypes?: ('R' | 'P')[]           // defaults to all-R when absent
   prismaticDirs?: ([number,number,number] | undefined)[]  // per-joint prismaticDir for 3D canvas
@@ -39,15 +37,15 @@ type AnyRobot = StandardRobot | CustomRobot
 const STANDARD_ROBOTS: StandardRobot[] = [
   {
     kind: 'standard', id: '2r', label: '2R Planar', sub: 'Revolute–Revolute',
-    dof: 2, wsType: '2dof', defaultLinks: [1.5, 1.1],
+    dof: 2, defaultLinks: [1.5, 1.1],
   },
   {
     kind: 'standard', id: '3r', label: '3R Planar', sub: 'R–R–R',
-    dof: 3, wsType: '3dof', defaultLinks: [1.2, 0.85, 0.55],
+    dof: 3, defaultLinks: [1.2, 0.85, 0.55],
   },
   {
     kind: 'standard', id: 'scara', label: 'SCARA', sub: 'R–R–P · 3 DOF',
-    dof: 3, wsType: 'scara', defaultLinks: [0.65, 0.48, 0.30],
+    dof: 3, defaultLinks: [0.65, 0.48, 0.30],
     jointTypes:    ['R', 'R', 'P'],
     prismaticDirs: [undefined, undefined, [0, -1, 0]],  // Z actuator moves downward (-Y in Three.js)
   },
@@ -183,6 +181,31 @@ export default function RoboticDashboard() {
       )
     : []
 
+  // ── Singularity & joint-limit warnings (FK mode, standard robots) ─────────
+  const rAnglesForWarning = isStandard && standardRobot
+    ? fkValues.slice(0, standardRobot.dof).filter((_, i) => getJt(i) === 'R')
+    : []
+
+  const singularityWarning: string | null = (() => {
+    if (kinMode !== 'fk' || rAnglesForWarning.length < 2) return null
+    const q2 = rAnglesForWarning[1]
+    if (Math.abs(Math.sin(q2)) < 0.15) {
+      return Math.cos(q2) > 0
+        ? 'Arm fully extended — det(J) ≈ 0'
+        : 'Arm fully folded — det(J) ≈ 0'
+    }
+    return null
+  })()
+
+  const jointLimitWarnings: string[] = (() => {
+    if (kinMode !== 'fk' || !isStandard || !standardRobot) return []
+    return Array.from({ length: standardRobot.dof }, (_, i) => {
+      if (getJt(i) !== 'R') return null
+      const deg = fkDeg[i] ?? 0
+      return Math.abs(deg) > 170 ? `q${i + 1} = ${deg.toFixed(0)}° near ±180°` : null
+    }).filter(Boolean) as string[]
+  })()
+
   /* ── render ─────────────────────────────────────────────────────────────── */
 
   return (
@@ -225,17 +248,15 @@ export default function RoboticDashboard() {
             </span>
           </div>
 
-          {isStandard && !viewMode3D && (
-            <button
-              onClick={() => setShowWorkspace(true)}
-              className="text-xs font-mono text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-300
-                         border border-slate-200 dark:border-slate-800
-                         hover:border-cyan-400/60 dark:hover:border-cyan-500/40
-                         px-3 py-1 rounded transition-all"
-            >
-              WORKSPACE SURFACE ↗
-            </button>
-          )}
+          <button
+            onClick={() => setShowWorkspace(true)}
+            className="text-xs font-mono text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-300
+                       border border-slate-200 dark:border-slate-800
+                       hover:border-cyan-400/60 dark:hover:border-cyan-500/40
+                       px-3 py-1 rounded transition-all"
+          >
+            WORKSPACE ↗
+          </button>
         </div>
       </div>
 
@@ -620,17 +641,35 @@ export default function RoboticDashboard() {
                 subtitle="2D PLANAR VIEW" />
             </>
           )}
+
+          {/* Singularity / joint-limit warnings */}
+          {(singularityWarning || jointLimitWarnings.length > 0) && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none z-10 flex flex-col items-center gap-1.5">
+              {singularityWarning && (
+                <div className="px-3 py-1.5 rounded-lg text-[11px] font-mono backdrop-blur-sm
+                                bg-amber-950/85 border border-amber-500/50 text-amber-300 whitespace-nowrap">
+                  ⚠ SINGULARITY — {singularityWarning}
+                </div>
+              )}
+              {jointLimitWarnings.map((w, i) => (
+                <div key={i} className="px-3 py-1.5 rounded-lg text-[11px] font-mono backdrop-blur-sm
+                                        bg-red-950/85 border border-red-500/50 text-red-300 whitespace-nowrap">
+                  ⛔ JOINT LIMIT — {w}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Workspace modal */}
-      {showWorkspace && isStandard && standardRobot && (
+      {showWorkspace && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/75 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setShowWorkspace(false) }}>
           <div className="w-[82vw] h-[82vh] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-slate-700/80 rounded-xl flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <span className="text-xs font-mono text-slate-600 dark:text-slate-300 tracking-widest">
-                WORKSPACE SURFACE — {standardRobot.label.toUpperCase()}
+                WORKSPACE — {currentRobot.label.toUpperCase()}
               </span>
               <button onClick={() => setShowWorkspace(false)}
                 className="text-xs font-mono text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors
@@ -639,7 +678,19 @@ export default function RoboticDashboard() {
               </button>
             </div>
             <div className="flex-1 min-h-0 p-3">
-              <WorkspaceSurface robotType={standardRobot.wsType} />
+              <WorkspaceSurface
+                linkLengths={
+                  isStandard
+                    ? allLinksStd
+                    : (customRobot?.joints.map(j => j.length) ?? [])
+                }
+                jointTypes={
+                  isStandard
+                    ? allLinksStd.map((_, i) => getJt(i))
+                    : (customRobot?.joints.map(j => j.type) ?? [])
+                }
+                label={currentRobot.label}
+              />
             </div>
           </div>
         </div>

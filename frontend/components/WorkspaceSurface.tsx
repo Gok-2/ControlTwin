@@ -1,125 +1,211 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 
 export type RobotType = '2dof' | '3dof' | 'scara' | 'delta'
 
 interface Props {
-  robotType: RobotType
+  linkLengths: number[]
+  jointTypes?: ('R' | 'P')[]
+  label?: string
 }
 
-/* ── Surface computation ──────────────────────────────────────────────────── */
+/* ── Planar FK ────────────────────────────────────────────────────────────── */
 
-function computeSurface(type: RobotType) {
-  const N = 55
+function fkPlanar(rLinks: number[], angles: number[]) {
+  let cum = 0, x = 0, y = 0
+  for (let i = 0; i < rLinks.length; i++) {
+    cum += angles[i] ?? 0
+    x += rLinks[i] * Math.cos(cum)
+    y += rLinks[i] * Math.sin(cum)
+  }
+  return { x, y }
+}
 
-  if (type === '2dof') {
-    const L1 = 1.5, L2 = 1.1
-    const x = Array.from({ length: N }, (_, j) => +((-Math.PI + 2 * Math.PI * j / (N - 1)).toFixed(3)))
-    const y = Array.from({ length: N }, (_, i) => +((-Math.PI + 2 * Math.PI * i / (N - 1)).toFixed(3)))
-    const z = y.map(q2 =>
-      x.map(q1 => L1 * L2 * Math.abs(Math.sin(q2)) * (0.85 + 0.15 * Math.sin(q1 + q2)))
-    )
-    return { x, y, z, colorscale: 'Viridis', title: 'Manipulability Surface — 2-DOF Planar', xl: 'q₁ (rad)', yl: 'q₂ (rad)', zl: 'w' }
+/* ── Workspace sampling ───────────────────────────────────────────────────── */
+
+interface WorkspaceResult {
+  xs: number[]
+  ys: number[]
+  maxX: number; minX: number
+  maxY: number; minY: number
+  maxR: number; minR: number
+}
+
+function computeWorkspace(linkLengths: number[], jointTypes: ('R' | 'P')[]): WorkspaceResult {
+  const rLinks = linkLengths.filter((_, i) => (jointTypes[i] ?? 'R') === 'R')
+  const n = rLinks.length
+
+  const xs: number[] = []
+  const ys: number[] = []
+
+  if (n === 0) return { xs: [0], ys: [0], maxX: 0, minX: 0, maxY: 0, minY: 0, maxR: 0, minR: 0 }
+
+  if (n === 1) {
+    for (let k = 0; k < 180; k++) {
+      const q = -Math.PI + 2 * Math.PI * k / 180
+      xs.push(rLinks[0] * Math.cos(q))
+      ys.push(rLinks[0] * Math.sin(q))
+    }
+  } else if (n === 2) {
+    const N = 80
+    for (let i = 0; i < N; i++) {
+      const q1 = -Math.PI + 2 * Math.PI * i / N
+      for (let j = 0; j < N; j++) {
+        const q2 = -Math.PI + 2 * Math.PI * j / N
+        const p = fkPlanar(rLinks, [q1, q2])
+        xs.push(p.x); ys.push(p.y)
+      }
+    }
+  } else if (n === 3) {
+    const N = 30
+    for (let i = 0; i < N; i++) {
+      const q1 = -Math.PI + 2 * Math.PI * i / N
+      for (let j = 0; j < N; j++) {
+        const q2 = -Math.PI + 2 * Math.PI * j / N
+        for (let k = 0; k < N; k++) {
+          const q3 = -Math.PI + 2 * Math.PI * k / N
+          const p = fkPlanar(rLinks, [q1, q2, q3])
+          xs.push(p.x); ys.push(p.y)
+        }
+      }
+    }
+  } else {
+    // Monte Carlo for 4+ R joints
+    for (let k = 0; k < 12000; k++) {
+      const angles = rLinks.map(() => (Math.random() - 0.5) * 2 * Math.PI)
+      const p = fkPlanar(rLinks, angles)
+      xs.push(p.x); ys.push(p.y)
+    }
   }
 
-  if (type === '3dof') {
-    const L1 = 1.2, L2 = 0.9, L3 = 0.6, Q3 = Math.PI / 5
-    const x = Array.from({ length: N }, (_, j) => +((-Math.PI + 2 * Math.PI * j / (N - 1)).toFixed(3)))
-    const y = Array.from({ length: N }, (_, i) => +((-Math.PI + 2 * Math.PI * i / (N - 1)).toFixed(3)))
-    const z = y.map(q2 =>
-      x.map(q1 => {
-        const w12 = L1 * L2 * Math.abs(Math.sin(q2))
-        const w23 = L2 * L3 * Math.abs(Math.sin(Q3))
-        const w13 = L1 * L3 * Math.abs(Math.sin(q2 + Q3))
-        return Math.sqrt(w12 * w12 + w23 * w23 + w13 * w13) * (0.8 + 0.2 * Math.cos(q1))
-      })
-    )
-    return { x, y, z, colorscale: 'Plasma', title: 'Velocity Ellipsoid — 3-DOF Spatial (q₃=π/5)', xl: 'q₁ (rad)', yl: 'q₂ (rad)', zl: 'w' }
+  let maxX = -Infinity, minX = Infinity, maxY = -Infinity, minY = Infinity
+  let maxR = 0, minR = Infinity
+  for (let i = 0; i < xs.length; i++) {
+    if (xs[i] > maxX) maxX = xs[i]
+    if (xs[i] < minX) minX = xs[i]
+    if (ys[i] > maxY) maxY = ys[i]
+    if (ys[i] < minY) minY = ys[i]
+    const r = Math.hypot(xs[i], ys[i])
+    if (r > maxR) maxR = r
+    if (r < minR) minR = r
   }
 
-  if (type === 'scara') {
-    const L1 = 0.55, L2 = 0.42, lim = (L1 + L2) * 1.05
-    const rMin = Math.abs(L1 - L2), rMax = L1 + L2
-    const x = Array.from({ length: N }, (_, j) => +(-lim + 2 * lim * j / (N - 1)).toFixed(4))
-    const y = Array.from({ length: N }, (_, i) => +(-lim + 2 * lim * i / (N - 1)).toFixed(4))
-    const z = y.map(py =>
-      x.map(px => {
-        const r = Math.sqrt(px * px + py * py)
-        if (r < rMin || r > rMax) return 0
-        const t = (r - rMin) / (rMax - rMin)
-        return 0.5 * (1 - Math.cos(2 * Math.PI * t))
-      })
-    )
-    return { x, y, z, colorscale: 'Cividis', title: 'Reachable Workspace — SCARA', xl: 'X (m)', yl: 'Y (m)', zl: 'Reachability' }
-  }
-
-  // delta
-  const R = 0.38
-  const x = Array.from({ length: N }, (_, j) => +(-R + 2 * R * j / (N - 1)).toFixed(4))
-  const y = Array.from({ length: N }, (_, i) => +(-R + 2 * R * i / (N - 1)).toFixed(4))
-  const z = y.map(py =>
-    x.map(px => {
-      const r = Math.sqrt(px * px + py * py)
-      if (r >= R) return 0
-      const theta = Math.atan2(py, px)
-      const sym = 0.7 + 0.3 * Math.cos(3 * theta) ** 2
-      const radial = 1 - (r / R) ** 2
-      return sym * radial * Math.max(0, 1 - 1.5 * (r / R) ** 4)
-    })
-  )
-  return { x, y, z, colorscale: 'Hot', title: 'Force Isotropy Index — Delta Parallel', xl: 'X (m)', yl: 'Y (m)', zl: 'f_iso' }
+  return { xs, ys, maxX, minX, maxY, minY, maxR, minR }
 }
 
 /* ── Component ────────────────────────────────────────────────────────────── */
 
-export default function WorkspaceSurface({ robotType }: Props) {
+export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }: Props) {
   const divRef = useRef<HTMLDivElement>(null)
   const plotlyRef = useRef<any>(null)
-  const robotTypeRef = useRef(robotType)
-  robotTypeRef.current = robotType
   const ready = useRef(false)
+  const wsRef = useRef<WorkspaceResult | null>(null)
 
-  function renderPlot(type: RobotType) {
+  const effectiveTypes: ('R' | 'P')[] = linkLengths.map((_, i) => jointTypes[i] ?? 'R')
+
+  const workspace = useMemo(
+    () => computeWorkspace(linkLengths, effectiveTypes),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [linkLengths.join(','), effectiveTypes.join(',')],
+  )
+  wsRef.current = workspace
+
+  function renderPlot(ws: WorkspaceResult) {
     if (!plotlyRef.current || !divRef.current) return
-    const { x, y, z, colorscale, title, xl, yl, zl } = computeSurface(type)
+    const { xs, ys, maxX, minX, maxY, minY, maxR, minR } = ws
+
+    const rMax = maxR > 0.01 ? maxR : 1
+    const rMin = minR < rMax - 0.05 ? minR : 0
+    const circN = 240
+    const circle = (r: number) => ({
+      x: Array.from({ length: circN + 1 }, (_, k) => r * Math.cos(k * 2 * Math.PI / circN)),
+      y: Array.from({ length: circN + 1 }, (_, k) => r * Math.sin(k * 2 * Math.PI / circN)),
+    })
 
     const axStyle = {
       color: '#475569',
       gridcolor: '#1e293b',
       zerolinecolor: '#334155',
+      zerolinewidth: 1.5,
+      zeroline: true,
       tickfont: { color: '#475569', size: 8 },
       titlefont: { color: '#64748b', size: 9 },
     }
 
+    const traces: object[] = [
+      {
+        type: 'scattergl',
+        x: xs,
+        y: ys,
+        mode: 'markers',
+        marker: { size: 2, color: 'rgba(34,211,238,0.22)' },
+        name: 'Reachable positions',
+        hovertemplate: 'x: %{x:.2f}m<br>y: %{y:.2f}m<extra></extra>',
+      },
+      // Max reach boundary
+      {
+        ...circle(rMax),
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: 'rgba(239,68,68,0.75)', width: 1.5, dash: 'dash' },
+        name: `Max reach ${rMax.toFixed(2)} m`,
+        hoverinfo: 'skip',
+      },
+      // Min reach boundary (only if meaningful)
+      ...(rMin > 0.05 ? [{
+        ...circle(rMin),
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: 'rgba(249,115,22,0.75)', width: 1.5, dash: 'dot' },
+        name: `Min reach ${rMin.toFixed(2)} m`,
+        hoverinfo: 'skip',
+      }] : []),
+      // Extreme markers
+      {
+        type: 'scatter',
+        x: [maxX, minX, 0, 0],
+        y: [0, 0, maxY, minY],
+        mode: 'markers+text',
+        marker: { size: 8, color: '#f59e0b', symbol: 'diamond', line: { color: '#fff', width: 1 } },
+        text: [
+          `Xmax ${maxX.toFixed(2)} m`,
+          `Xmin ${minX.toFixed(2)} m`,
+          `Ymax ${maxY.toFixed(2)} m`,
+          `Ymin ${minY.toFixed(2)} m`,
+        ],
+        textposition: ['top right', 'top left', 'top right', 'bottom right'],
+        textfont: { color: '#f59e0b', size: 8, family: 'JetBrains Mono,monospace' },
+        name: 'Boundary extremes',
+        hovertemplate: '%{text}<extra></extra>',
+      },
+    ]
+
+    const pad = rMax * 0.18
+    const axRange = [-(rMax + pad), rMax + pad]
+
     plotlyRef.current.react(
       divRef.current,
-      [{
-        type: 'surface',
-        x, y, z,
-        colorscale,
-        showscale: false,
-        contours: {
-          z: { show: true, usecolormap: true, highlightcolor: '#22d3ee', project: { z: true } },
-        },
-        opacity: 0.92,
-      }],
+      traces,
       {
         paper_bgcolor: 'transparent',
-        scene: {
-          bgcolor: 'rgba(10,10,20,0)',
-          xaxis: { ...axStyle, title: xl },
-          yaxis: { ...axStyle, title: yl },
-          zaxis: { ...axStyle, title: zl },
-          camera: { eye: { x: 1.6, y: 1.6, z: 1.1 } },
+        plot_bgcolor: 'transparent',
+        xaxis: { ...axStyle, title: 'X (m)', range: axRange, scaleanchor: 'y', scaleratio: 1 },
+        yaxis: { ...axStyle, title: 'Y (m)', range: axRange },
+        legend: {
+          font: { color: '#64748b', size: 8, family: 'JetBrains Mono,monospace' },
+          bgcolor: 'rgba(13,17,23,0.75)',
+          bordercolor: '#1e293b',
+          borderwidth: 1,
+          x: 0.01, y: 0.99,
+          xanchor: 'left', yanchor: 'top',
         },
-        margin: { l: 0, r: 0, t: 40, b: 0 },
-        font: { family: 'JetBrains Mono, Fira Code, monospace', color: '#64748b', size: 9 },
+        margin: { l: 52, r: 16, t: 40, b: 50 },
+        font: { family: 'JetBrains Mono,monospace', color: '#64748b', size: 9 },
         title: {
-          text: title,
-          font: { color: '#94a3b8', size: 11, family: 'JetBrains Mono, Fira Code, monospace' },
-          x: 0.5,
-          xanchor: 'center',
+          text: `Geometric Workspace — ${label ?? 'Reachable EE Positions'}`,
+          font: { color: '#94a3b8', size: 11, family: 'JetBrains Mono,monospace' },
+          x: 0.5, xanchor: 'center',
         },
       },
       { responsive: true, displayModeBar: false },
@@ -132,19 +218,19 @@ export default function WorkspaceSurface({ robotType }: Props) {
       if (cancelled) return
       plotlyRef.current = (mod as any).default ?? mod
       ready.current = true
-      renderPlot(robotTypeRef.current)
+      if (wsRef.current) renderPlot(wsRef.current)
     })
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (ready.current) renderPlot(robotType)
-  }, [robotType]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (ready.current && wsRef.current) renderPlot(wsRef.current)
+  }, [workspace]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col h-full">
       <div className="text-[9px] font-mono tracking-widest text-slate-700 mb-1 px-1">
-        3D WORKSPACE SURFACE
+        GEOMETRIC WORKSPACE — REACHABLE END-EFFECTOR POSITIONS
       </div>
       <div ref={divRef} className="flex-1 min-h-0 w-full" />
     </div>

@@ -142,6 +142,7 @@ export default function RobotCanvas3D({ joints, jointValues, mode, isDark, onEEU
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.shadowMap.enabled = true
     mount.appendChild(renderer.domElement)
+    renderer.domElement.style.touchAction = 'none'
 
     // Lighting
     const ambient = new THREE.AmbientLight(
@@ -245,8 +246,10 @@ export default function RobotCanvas3D({ joints, jointValues, mode, isDark, onEEU
         const t = tRef.current
         const demo = joints.map((j, i) =>
           j.type === 'R'
-            ? (0.35 + 0.65 * Math.sin(t * (0.5 + i * 0.25))) * (i % 2 === 0 ? 1 : -1)
-            : j.length * (0.2 + 0.4 * Math.abs(Math.sin(t * 0.4)))
+            ? (i === 0
+                ? Math.PI * 0.55 * Math.sin(t * 0.4)                           // base: ±99° sweep for 3D motion
+                : Math.PI * 0.45 * Math.sin(t * (0.55 + i * 0.18) + i * 1.1)) // links: phase-diverse bending
+            : j.length * (0.25 + 0.4 * Math.abs(Math.sin(t * 0.4)))
         )
         updateArm(demo)
       } else {
@@ -277,5 +280,5 @@ export default function RobotCanvas3D({ joints, jointValues, mode, isDark, onEEU
     }
   }, [joints]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={mountRef} className="w-full h-full" />
+  return <div ref={mountRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }} />
 }
