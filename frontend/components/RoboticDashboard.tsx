@@ -19,6 +19,8 @@ interface StandardRobot {
   dof: number
   wsType: RobotType
   defaultLinks: number[]
+  jointTypes?: ('R' | 'P')[]           // defaults to all-R when absent
+  prismaticDirs?: ([number,number,number] | undefined)[]  // per-joint prismaticDir for 3D canvas
 }
 
 interface CustomRobot {
@@ -34,9 +36,20 @@ type AnyRobot = StandardRobot | CustomRobot
 /* ── Catalogue ───────────────────────────────────────────────────────────── */
 
 const STANDARD_ROBOTS: StandardRobot[] = [
-  { kind: 'standard', id: '2r',    label: '2R Planar',  sub: 'Revolute–Revolute',    dof: 2, wsType: '2dof',  defaultLinks: [1.5, 1.1] },
-  { kind: 'standard', id: '3r',    label: '3R Planar',  sub: 'R–R–R',                dof: 3, wsType: '3dof',  defaultLinks: [1.2, 0.85, 0.55] },
-  { kind: 'standard', id: 'scara', label: 'SCARA',      sub: 'Selective Compliance', dof: 2, wsType: 'scara', defaultLinks: [0.65, 0.48] },
+  {
+    kind: 'standard', id: '2r', label: '2R Planar', sub: 'Revolute–Revolute',
+    dof: 2, wsType: '2dof', defaultLinks: [1.5, 1.1],
+  },
+  {
+    kind: 'standard', id: '3r', label: '3R Planar', sub: 'R–R–R',
+    dof: 3, wsType: '3dof', defaultLinks: [1.2, 0.85, 0.55],
+  },
+  {
+    kind: 'standard', id: 'scara', label: 'SCARA', sub: 'R–R–P · 3 DOF',
+    dof: 3, wsType: 'scara', defaultLinks: [0.65, 0.48, 0.30],
+    jointTypes:    ['R', 'R', 'P'],
+    prismaticDirs: [undefined, undefined, [0, -1, 0]],  // Z actuator moves downward (-Y in Three.js)
+  },
 ]
 
 /* ── Component ───────────────────────────────────────────────────────────── */
@@ -48,7 +61,11 @@ export default function RoboticDashboard() {
   const [selectedId, setSelectedId]       = useState<string>('2r')
   const [kinMode, setKinMode]             = useState<KinMode>('demo')
   const [viewMode3D, setViewMode3D]       = useState(false)
-  const [fkDeg, setFkDeg]                 = useState([45, 60, 30, 0, 0])
+
+  // FK state — fkDeg stores degrees for R joints; fkMeters stores metres for P joints
+  const [fkDeg, setFkDeg]     = useState([45, 60, 30, 0, 0])
+  const [fkMeters, setFkMeters] = useState([0, 0, 0, 0, 0])
+
   const [ikTarget, setIkTarget]           = useState({ x: 1.8, y: 1.0, phi: 0.0 })
   const [ikValid, setIkValid]             = useState(true)
   const [ikAngles, setIkAngles]           = useState<number[]>([])
@@ -58,7 +75,7 @@ export default function RoboticDashboard() {
   const [customLinks, setCustomLinks]     = useState<Record<string, number[]>>({
     '2r':    [...LINK_LENGTHS['2r']],
     '3r':    [...LINK_LENGTHS['3r']],
-    'scara': [...LINK_LENGTHS['scara']],
+    'scara': [0.65, 0.48, 0.30],   // R1, R2, P (Z stroke)
   })
   const [showAddPanel, setShowAddPanel]   = useState(false)
   const [newRobotName, setNewRobotName]   = useState('Özel Robot')
@@ -72,26 +89,33 @@ export default function RoboticDashboard() {
   const currentRobot           = allRobots.find(r => r.id === selectedId) ?? STANDARD_ROBOTS[0]
   const isCustom               = currentRobot.kind === 'custom'
   const isStandard             = currentRobot.kind === 'standard'
+  const standardRobot          = isStandard ? (currentRobot as StandardRobot) : null
+  const customRobot            = isCustom   ? (currentRobot as CustomRobot)   : null
+
+  // Helper: joint type at index i for the selected standard robot
+  const getJt = (i: number): 'R' | 'P' => standardRobot?.jointTypes?.[i] ?? 'R'
 
   // Exit IK when switching to 3D (IK is 2D-only)
   useEffect(() => {
     if (viewMode3D && kinMode === 'ik') setKinMode('demo')
   }, [viewMode3D]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // IK — solve only with the revolute links (ignore prismatic)
   useEffect(() => {
-    if (!isStandard) return
-    const r = currentRobot as StandardRobot
-    const links = customLinks[r.id] ?? r.defaultLinks
+    if (!isStandard || !standardRobot) return
+    const allLinks = customLinks[standardRobot.id] ?? standardRobot.defaultLinks
+    const rLinks   = allLinks.filter((_, i) => getJt(i) === 'R')
     let sol: number[] | null = null
-    if (links.length === 2) sol = ik2R(links[0], links[1], ikTarget.x, ikTarget.y)
-    else sol = ik3R(links[0], links[1], links[2], ikTarget.x, ikTarget.y, ikTarget.phi)
+    if (rLinks.length === 2) sol = ik2R(rLinks[0], rLinks[1], ikTarget.x, ikTarget.y)
+    else if (rLinks.length >= 3) sol = ik3R(rLinks[0], rLinks[1], rLinks[2], ikTarget.x, ikTarget.y, ikTarget.phi)
     setIkValid(sol !== null)
     setIkAngles(sol ?? [])
-  }, [ikTarget, selectedId, customLinks, isStandard, currentRobot])
+  }, [ikTarget, selectedId, customLinks, isStandard, currentRobot]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setKinMode('demo')
-    setFkDeg([45, 60, 30, 0, 0])
+    setFkDeg([45, 60, 0, 0, 0])
+    setFkMeters([0, 0, 0, 0, 0])
     if (isCustom) setFk3DDeg((currentRobot as CustomRobot).joints.map(() => 0))
   }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -115,26 +139,46 @@ export default function RoboticDashboard() {
     setNewJoints([{ type: 'R', length: 1.0 }, { type: 'R', length: 0.8 }])
   }
 
-  const fkRad         = fkDeg.map(d => d * Math.PI / 180)
-  const standardRobot = isStandard ? (currentRobot as StandardRobot) : null
-  const customRobot   = isCustom   ? (currentRobot as CustomRobot)   : null
-  const fk3DValues    = customRobot
+  // FK values for standard robots: R joints → radians, P joints → metres
+  const fkValues = Array.from({ length: 5 }, (_, i) =>
+    getJt(i) === 'R' ? (fkDeg[i] ?? 0) * Math.PI / 180 : (fkMeters[i] ?? 0)
+  )
+
+  // For 2D canvas: only the revolute joints matter (planar kinematics)
+  const allLinksStd = standardRobot
+    ? (customLinks[standardRobot.id] ?? standardRobot.defaultLinks)
+    : []
+  const rLinksFor2D = allLinksStd.filter((_, i) => getJt(i) === 'R')
+  const fkAnglesFor2D = fkValues.filter((_, i) => getJt(i) === 'R')
+
+  // Standard robot expressed as CustomJoint[] for the 3D canvas (includes P joints)
+  const standardAs3DJoints: CustomJoint[] = allLinksStd.map((l, i) => ({
+    type: standardRobot?.jointTypes?.[i] ?? 'R',
+    length: l,
+    prismaticDir: standardRobot?.prismaticDirs?.[i],
+  }))
+
+  // FK/IK values for the 3D canvas
+  const standard3DValues = (() => {
+    if (kinMode === 'fk') {
+      return fkValues.slice(0, standardRobot?.dof ?? 0)
+    }
+    if (kinMode === 'ik') {
+      // IK returns R-joint angles; fill P joints from fkMeters
+      let rIdx = 0
+      return Array.from({ length: standardRobot?.dof ?? 0 }, (_, i) =>
+        getJt(i) === 'R' ? (ikAngles[rIdx++] ?? 0) : (fkMeters[i] ?? 0)
+      )
+    }
+    return []
+  })()
+
+  // Custom robot
+  const fk3DValues = customRobot
     ? customRobot.joints.map((j, i) =>
         j.type === 'R' ? (fk3DDeg[i] ?? 0) * Math.PI / 180 : (fk3DDeg[i] ?? 0)
       )
     : []
-
-  // Standard robot expressed as CustomJoint[] for the 3D canvas
-  const standardAs3DJoints: CustomJoint[] = standardRobot
-    ? (customLinks[standardRobot.id] ?? standardRobot.defaultLinks).map(l => ({ type: 'R' as const, length: l }))
-    : []
-
-  // IK angles in 3D: use ikAngles if available, else zeros
-  const standard3DValues = (() => {
-    if (kinMode === 'fk') return fkRad.slice(0, standardRobot?.dof ?? 0)
-    if (kinMode === 'ik' && ikAngles.length) return ikAngles
-    return []
-  })()
 
   /* ── render ─────────────────────────────────────────────────────────────── */
 
@@ -159,7 +203,7 @@ export default function RoboticDashboard() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* 2D / 3D view toggle */}
+          {/* 2D / 3D toggle */}
           <div className="flex items-center gap-2">
             <span className={`text-[11px] font-mono transition-colors select-none ${!viewMode3D ? 'text-cyan-600 dark:text-cyan-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>
               2D
@@ -298,35 +342,55 @@ export default function RoboticDashboard() {
 
           <Divider />
 
-          {/* Özelleştir — only in 2D mode for standard robots */}
-          {isStandard && standardRobot && !viewMode3D && (
+          {/* Robot Özelleştir — always visible for standard robots */}
+          {isStandard && standardRobot && (
             <>
               <SideSection label="ROBOT ÖZELLEŞTİR">
                 <div className="space-y-3">
                   <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
-                    Kol uzunluklarını değiştirin — robot canlı güncellenir.
+                    Parametreleri değiştirin — robot canlı güncellenir.
                   </p>
-                  {(customLinks[standardRobot.id] ?? standardRobot.defaultLinks).map((len, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
-                        <span>a<sub>{i + 1}</sub> — Kol {i + 1}</span>
-                        <span className="text-cyan-600 dark:text-cyan-400">{len.toFixed(2)} m</span>
+                  {allLinksStd.map((len, i) => {
+                    const isP = getJt(i) === 'P'
+                    const paramMin  = isP ? 0.05 : 0.1
+                    const paramMax  = isP ? 0.8  : 3.0
+                    const paramStep = 0.05
+                    return (
+                      <div key={i}>
+                        <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
+                          <span>
+                            {isP
+                              ? <><span className="text-slate-400 dark:text-slate-600">d</span><sub>{i + 1}</sub> — Z Stroku</>
+                              : <><span className="text-slate-400 dark:text-slate-600">a</span><sub>{i + 1}</sub> — Kol {i + 1}</>
+                            }
+                          </span>
+                          <span className="text-cyan-600 dark:text-cyan-400">{len.toFixed(2)} m</span>
+                        </div>
+                        <input type="range" min={paramMin} max={paramMax} step={paramStep} value={len}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value)
+                            setCustomLinks(prev => {
+                              const arr = [...(prev[standardRobot.id] ?? standardRobot.defaultLinks)]
+                              arr[i] = v
+                              return { ...prev, [standardRobot.id]: arr }
+                            })
+                          }}
+                          className="w-full h-1 accent-cyan-500" />
+                        <input type="number" min={paramMin} max={paramMax} step={paramStep}
+                          value={len.toFixed(2)}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value) || paramMin
+                            setCustomLinks(prev => {
+                              const arr = [...(prev[standardRobot.id] ?? standardRobot.defaultLinks)]
+                              arr[i] = Math.max(paramMin, Math.min(paramMax, v))
+                              return { ...prev, [standardRobot.id]: arr }
+                            })
+                          }}
+                          className="w-full mt-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1
+                                     text-[11px] font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500/50" />
                       </div>
-                      <input type="range" min="0.1" max="3.0" step="0.05" value={len}
-                        onChange={e => {
-                          const v = parseFloat(e.target.value)
-                          setCustomLinks(prev => { const arr = [...(prev[standardRobot.id] ?? standardRobot.defaultLinks)]; arr[i] = v; return { ...prev, [standardRobot.id]: arr } })
-                        }}
-                        className="w-full h-1 accent-cyan-500" />
-                      <input type="number" min="0.1" max="3.0" step="0.05" value={len.toFixed(2)}
-                        onChange={e => {
-                          const v = parseFloat(e.target.value) || 0.1
-                          setCustomLinks(prev => { const arr = [...(prev[standardRobot.id] ?? standardRobot.defaultLinks)]; arr[i] = Math.max(0.1, Math.min(3.0, v)); return { ...prev, [standardRobot.id]: arr } })
-                        }}
-                        className="w-full mt-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1
-                                   text-[11px] font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500/50" />
-                    </div>
-                  ))}
+                    )
+                  })}
                   <button
                     onClick={() => setCustomLinks(prev => ({ ...prev, [standardRobot.id]: [...standardRobot.defaultLinks] }))}
                     className="w-full text-[10px] font-mono py-1 border border-slate-200 dark:border-slate-800 text-slate-500
@@ -343,7 +407,7 @@ export default function RoboticDashboard() {
           <SideSection label="KİNEMATİK">
             <div className="space-y-3">
 
-              {/* Mode selector — standard robots */}
+              {/* Mode selector — standard */}
               {isStandard && (
                 <div className="flex gap-1">
                   {(['demo', 'fk', ...(!viewMode3D ? ['ik'] : [])] as KinMode[]).map(m => (
@@ -359,7 +423,7 @@ export default function RoboticDashboard() {
                 </div>
               )}
 
-              {/* Mode selector — custom robots */}
+              {/* Mode selector — custom */}
               {isCustom && (
                 <div className="flex gap-1">
                   {(['demo', 'fk'] as const).map(m => (
@@ -375,28 +439,36 @@ export default function RoboticDashboard() {
                 </div>
               )}
 
-              {/* ── Standard robot controls ── */}
+              {/* Standard robot kinematic controls */}
               {isStandard && standardRobot && (
                 <>
                   {kinMode === 'demo' && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
-                        {viewMode3D ? '3D demo yörünge — fare ile döndürün.' : 'Özerk sinüsoidal yörünge. FK veya IK\'ya geçerek interaktif kontrol yapın.'}
+                        {viewMode3D ? '3D demo yörünge — fare ile döndürün.' : 'Sinüsoidal demo yörünge. FK veya IK\'ya geçerek interaktif kontrol yapın.'}
                       </p>
-                      {viewMode3D
-                        ? <EEReadout3D pos={ee3DPos} />
-                        : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
+                      {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
                     </div>
                   )}
                   {kinMode === 'fk' && (
                     <div className="space-y-3">
-                      {Array.from({ length: standardRobot.dof }, (_, i) => (
-                        <JointSlider key={i} index={i} value={fkDeg[i] ?? 0}
-                          onChange={v => setFkDeg(prev => { const a = [...prev]; a[i] = v; return a })} />
-                      ))}
-                      {viewMode3D
-                        ? <EEReadout3D pos={ee3DPos} />
-                        : <EEReadout label="UÇ KONUM" pos={eePos} />}
+                      {Array.from({ length: standardRobot.dof }, (_, i) => {
+                        const isP   = getJt(i) === 'P'
+                        const maxL  = allLinksStd[i] ?? 0.5
+                        return isP ? (
+                          <PrismaticSlider
+                            key={i} index={i} maxLen={maxL}
+                            value={fkMeters[i] ?? 0}
+                            onChange={v => setFkMeters(prev => { const a = [...prev]; a[i] = v; return a })}
+                          />
+                        ) : (
+                          <JointSlider
+                            key={i} index={i} value={fkDeg[i] ?? 0}
+                            onChange={v => setFkDeg(prev => { const a = [...prev]; a[i] = v; return a })}
+                          />
+                        )
+                      })}
+                      {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="UÇ KONUM" pos={eePos} />}
                     </div>
                   )}
                   {kinMode === 'ik' && !viewMode3D && (
@@ -405,7 +477,7 @@ export default function RoboticDashboard() {
                         onChange={v => setIkTarget(p => ({ ...p, x: v }))} />
                       <NumInput label="Hedef Y (m)" value={ikTarget.y} step={0.05}
                         onChange={v => setIkTarget(p => ({ ...p, y: v }))} />
-                      {standardRobot.dof >= 3 && (
+                      {rLinksFor2D.length >= 3 && (
                         <NumInput label="UE φ (rad)" value={ikTarget.phi} step={0.05}
                           onChange={v => setIkTarget(p => ({ ...p, phi: v }))} />
                       )}
@@ -416,6 +488,18 @@ export default function RoboticDashboard() {
                       }`}>
                         {ikValid ? '✓ Çözüm bulundu' : '✗ Çalışma uzayı dışında'}
                       </div>
+                      {/* Z slider for robots with prismatic joints */}
+                      {standardRobot.jointTypes?.some(t => t === 'P') && (
+                        <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                          {allLinksStd.map((_, i) => getJt(i) === 'P' ? (
+                            <PrismaticSlider
+                              key={i} index={i} maxLen={allLinksStd[i] ?? 0.5}
+                              value={fkMeters[i] ?? 0}
+                              onChange={v => setFkMeters(prev => { const a = [...prev]; a[i] = v; return a })}
+                            />
+                          ) : null)}
+                        </div>
+                      )}
                       {ikValid && (
                         <div className="pt-1 border-t border-slate-100 dark:border-slate-800 space-y-1">
                           <div className="text-[10px] font-mono text-slate-500 mb-1">EKLEM AÇILARI</div>
@@ -432,7 +516,7 @@ export default function RoboticDashboard() {
                 </>
               )}
 
-              {/* ── Custom robot controls ── */}
+              {/* Custom robot controls */}
               {isCustom && customRobot && (
                 <div className="space-y-3">
                   {kinMode === 'demo' && (
@@ -445,19 +529,20 @@ export default function RoboticDashboard() {
                       value={fk3DDeg[i] ?? 0}
                       onChange={v => setFk3DDeg(prev => { const a = [...prev]; a[i] = v; return a })} />
                   ))}
-                  {viewMode3D
-                    ? <EEReadout3D pos={ee3DPos} />
-                    : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
+                  {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
                 </div>
               )}
             </div>
           </SideSection>
 
-          {isStandard && standardRobot && !viewMode3D && (
+          {/* Link lengths summary */}
+          {isStandard && standardRobot && (
             <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800/60 shrink-0 mt-auto">
               <div className="text-[10px] font-mono text-slate-400 dark:text-slate-700 leading-relaxed">
-                {(customLinks[standardRobot.id] ?? standardRobot.defaultLinks)
-                  .map((l, i) => `L${i + 1}=${l.toFixed(2)}`).join(' · ')} m
+                {allLinksStd.map((l, i) => {
+                  const label = getJt(i) === 'P' ? `d${i+1}` : `L${i+1}`
+                  return `${label}=${l.toFixed(2)}`
+                }).join(' · ')} m
               </div>
             </div>
           )}
@@ -473,9 +558,9 @@ export default function RoboticDashboard() {
                 key={`${selectedId}-2d`}
                 model={standardRobot.id}
                 mode={kinMode === 'fk' ? 'fk' : kinMode === 'ik' ? 'ik' : 'demo'}
-                angles={kinMode === 'fk' ? fkRad : undefined}
+                angles={kinMode === 'fk' ? fkAnglesFor2D : undefined}
                 target={kinMode === 'ik' ? ikTarget : undefined}
-                customLinkLengths={customLinks[standardRobot.id]}
+                customLinkLengths={rLinksFor2D}
                 onEEUpdate={handleEEUpdate2D}
               />
               <CanvasLabel title={standardRobot.label.toUpperCase()}
@@ -603,6 +688,25 @@ function JointSlider({ index, value, onChange }: { index: number; value: number;
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
         className="w-full mt-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1
                    text-[11px] font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500/50" />
+    </div>
+  )
+}
+
+function PrismaticSlider({ index, maxLen, value, onChange }: {
+  index: number; maxLen: number; value: number; onChange: (v: number) => void
+}) {
+  return (
+    <div>
+      <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-0.5">
+        <span>q{index + 1} — Z Stroku (m)</span>
+        <span className="text-violet-600 dark:text-violet-400">{value.toFixed(3)} m</span>
+      </div>
+      <input type="range" min="0" max={maxLen} step="0.01" value={value}
+        onChange={e => onChange(parseFloat(e.target.value))} className="w-full accent-violet-500 h-1" />
+      <input type="number" min="0" max={maxLen} step="0.01" value={value.toFixed(3)}
+        onChange={e => onChange(Math.max(0, Math.min(maxLen, parseFloat(e.target.value) || 0)))}
+        className="w-full mt-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1
+                   text-[11px] font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:border-violet-500/50" />
     </div>
   )
 }

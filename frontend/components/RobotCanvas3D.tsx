@@ -9,6 +9,8 @@ export interface CustomJoint {
   type: JointType
   length: number
   name?: string
+  /** Translation direction for P joints in Three.js world space. Default [1,0,0] (along link axis). */
+  prismaticDir?: [number, number, number]
 }
 
 interface Props {
@@ -36,7 +38,8 @@ function computeFK3D(joints: CustomJoint[], values: number[]): THREE.Vector3[] {
       T.multiply(rot)
     } else {
       const d = Math.max(0, Math.min(length, q))
-      T.multiply(new THREE.Matrix4().makeTranslation(d, 0, 0))
+      const [dx, dy, dz] = joints[i].prismaticDir ?? [1, 0, 0]
+      T.multiply(new THREE.Matrix4().makeTranslation(dx * d, dy * d, dz * d))
     }
     T.multiply(new THREE.Matrix4().makeTranslation(length, 0, 0))
     points.push(new THREE.Vector3().applyMatrix4(T))
