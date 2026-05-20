@@ -6,6 +6,7 @@ import RobotCanvas2D, { type RobotModel, LINK_LENGTHS, ik2R, ik3R } from './Robo
 import RobotCanvas3D, { type CustomJoint } from './RobotCanvas3D'
 import WorkspaceSurface from './WorkspaceSurface'
 import type { RobotType } from './WorkspaceSurface'
+import { useTheme } from '@/context/ThemeContext'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 
@@ -56,6 +57,8 @@ const STANDARD_ROBOTS: StandardRobot[] = [
 
 export default function RoboticDashboard() {
   const router = useRouter()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
 
   const [customRobots, setCustomRobots]   = useState<CustomRobot[]>([])
   const [selectedId, setSelectedId]       = useState<string>('2r')
@@ -561,6 +564,7 @@ export default function RoboticDashboard() {
                 angles={kinMode === 'fk' ? fkAnglesFor2D : undefined}
                 target={kinMode === 'ik' ? ikTarget : undefined}
                 customLinkLengths={rLinksFor2D}
+                isDark={isDark}
                 onEEUpdate={handleEEUpdate2D}
               />
               <CanvasLabel title={standardRobot.label.toUpperCase()}
@@ -576,6 +580,7 @@ export default function RoboticDashboard() {
                 joints={standardAs3DJoints}
                 jointValues={kinMode === 'demo' ? [] : standard3DValues}
                 mode={kinMode === 'demo' ? 'demo' : 'fk'}
+                isDark={isDark}
                 onEEUpdate={handleEEUpdate3D}
               />
               <CanvasLabel title={standardRobot.label.toUpperCase()}
@@ -591,6 +596,7 @@ export default function RoboticDashboard() {
                 joints={customRobot.joints}
                 jointValues={kinMode === 'fk' ? fk3DValues : []}
                 mode={kinMode === 'fk' ? 'fk' : 'demo'}
+                isDark={isDark}
                 onEEUpdate={handleEEUpdate3D}
               />
               <CanvasLabel title={customRobot.label.toUpperCase()}
@@ -607,6 +613,7 @@ export default function RoboticDashboard() {
                 mode={kinMode === 'fk' ? 'fk' : 'demo'}
                 angles={kinMode === 'fk' ? fk3DValues : undefined}
                 customLinkLengths={customRobot.joints.map(j => j.length)}
+                isDark={isDark}
                 onEEUpdate={handleEEUpdate2D}
               />
               <CanvasLabel title={customRobot.label.toUpperCase()}

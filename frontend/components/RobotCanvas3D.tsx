@@ -18,6 +18,7 @@ interface Props {
   /** For FK mode: radians for R joints, meters for P joints */
   jointValues: number[]
   mode: 'demo' | 'fk'
+  isDark?: boolean
   onEEUpdate?: (pos: { x: number; y: number; z: number }) => void
 }
 
@@ -81,31 +82,56 @@ function setCylinderBetween(mesh: THREE.Mesh, a: THREE.Vector3, b: THREE.Vector3
 
 /* ── Component ────────────────────────────────────────────────────────────── */
 
-export default function RobotCanvas3D({ joints, jointValues, mode, onEEUpdate }: Props) {
-  const mountRef    = useRef<HTMLDivElement>(null)
-  const rafRef      = useRef<number>(0)
-  const tRef        = useRef(0)
-  const modeRef     = useRef(mode)
-  const valuesRef   = useRef(jointValues)
-  const onEERef     = useRef(onEEUpdate)
-  const linkMeshes  = useRef<THREE.Mesh[]>([])
-  const jointMeshes = useRef<THREE.Mesh[]>([])
-  const eeMeshRef   = useRef<THREE.Mesh | null>(null)
-  const eeGlowRef   = useRef<THREE.PointLight | null>(null)
+export default function RobotCanvas3D({ joints, jointValues, mode, isDark, onEEUpdate }: Props) {
+  const mountRef     = useRef<HTMLDivElement>(null)
+  const rafRef       = useRef<number>(0)
+  const tRef         = useRef(0)
+  const modeRef      = useRef(mode)
+  const valuesRef    = useRef(jointValues)
+  const onEERef      = useRef(onEEUpdate)
+  const linkMeshes   = useRef<THREE.Mesh[]>([])
+  const jointMeshes  = useRef<THREE.Mesh[]>([])
+  const eeMeshRef    = useRef<THREE.Mesh | null>(null)
+  const eeGlowRef    = useRef<THREE.PointLight | null>(null)
   const updateArmRef = useRef<((vals: number[]) => void) | null>(null)
+
+  // Refs for theme-reactive scene objects
+  const sceneRef    = useRef<THREE.Scene | null>(null)
+  const ambientRef  = useRef<THREE.AmbientLight | null>(null)
+  const gridRef     = useRef<THREE.GridHelper | null>(null)
 
   // Keep refs in sync
   useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { valuesRef.current = jointValues }, [jointValues])
   useEffect(() => { onEERef.current = onEEUpdate }, [onEEUpdate])
 
+  // Theme reactive — update background, grid and ambient without rebuilding scene
+  useEffect(() => {
+    const scene   = sceneRef.current
+    const ambient = ambientRef.current
+    const grid    = gridRef.current
+    if (!scene || !ambient || !grid) return
+
+    const dark = isDark ?? true
+    scene.background = new THREE.Color(dark ? 0x080810 : 0xf0f4f8)
+    ambient.color.set(dark ? 0x3b4f6a : 0xd4e8f0)
+    ambient.intensity = dark ? 1.5 : 2.8
+    const gc = dark ? 0x1e293b : 0xb0bec8
+    const gl = dark ? 0x0f172a : 0xdde3ea
+    grid.material = new THREE.LineBasicMaterial({ color: gc }) as any
+    ;(grid as any).setColors?.(new THREE.Color(gc), new THREE.Color(gl))
+  }, [isDark])
+
   // Setup scene once per joints change
   useEffect(() => {
     const mount = mountRef.current
     if (!mount) return
 
+    const dark = isDark ?? true
+
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x080810)
+    scene.background = new THREE.Color(dark ? 0x080810 : 0xf0f4f8)
+    sceneRef.current = scene
 
     const cam = new THREE.PerspectiveCamera(50, mount.clientWidth / mount.clientHeight, 0.01, 100)
     cam.position.set(4.5, 3.5, 4.5)
@@ -118,16 +144,28 @@ export default function RobotCanvas3D({ joints, jointValues, mode, onEEUpdate }:
     mount.appendChild(renderer.domElement)
 
     // Lighting
-    scene.add(new THREE.AmbientLight(0x3b4f6a, 1.5))
+    const ambient = new THREE.AmbientLight(
+      dark ? 0x3b4f6a : 0xd4e8f0,
+      dark ? 1.5 : 2.8,
+    )
+    scene.add(ambient)
+    ambientRef.current = ambient
+
     const sun = new THREE.DirectionalLight(0xffffff, 1.2)
     sun.position.set(6, 10, 6)
     scene.add(sun)
-    const fill = new THREE.DirectionalLight(0x4488ff, 0.5)
+
+    const fill = new THREE.DirectionalLight(0x4488ff, dark ? 0.5 : 0.2)
     fill.position.set(-4, 6, -4)
     scene.add(fill)
 
     // Grid + axes
-    scene.add(new THREE.GridHelper(12, 24, 0x1e293b, 0x0f172a))
+    const gc = dark ? 0x1e293b : 0xb0bec8
+    const gl = dark ? 0x0f172a : 0xdde3ea
+    const grid = new THREE.GridHelper(12, 24, gc, gl)
+    scene.add(grid)
+    gridRef.current = grid
+
     scene.add(new THREE.AxesHelper(0.6))
 
     function axisLabel(text: string, pos: THREE.Vector3, color: string) {
@@ -233,6 +271,9 @@ export default function RobotCanvas3D({ joints, jointValues, mode, onEEUpdate }:
       if (controls) controls.dispose()
       renderer.dispose()
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
+      sceneRef.current   = null
+      ambientRef.current = null
+      gridRef.current    = null
     }
   }, [joints]) // eslint-disable-line react-hooks/exhaustive-deps
 
