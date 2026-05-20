@@ -6,6 +6,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { runSimulation, analyzeStability, DEFAULT_PARAMS, type SimParams, type SimResult } from '@/lib/robotSim'
+import { useTheme } from '@/context/ThemeContext'
 
 // ── Plotly chart ──────────────────────────────────────────────────────────────
 
@@ -18,9 +19,10 @@ interface ChartProps {
   title: string
   yLabel: string
   divId: string
+  isDark: boolean
 }
 
-function PlotlyChart({ traces, title, yLabel, divId }: ChartProps) {
+function PlotlyChart({ traces, title, yLabel, divId, isDark }: ChartProps) {
   const divRef = useRef<HTMLDivElement>(null)
 
   const renderChart = useCallback(() => {
@@ -30,7 +32,7 @@ function PlotlyChart({ traces, title, yLabel, divId }: ChartProps) {
         x: tr.x, y: tr.y, name: tr.name, type: 'scatter', mode: 'lines',
         line: { color: tr.color, width: 1.5, dash: tr.dash ?? 'solid' },
       }))
-      const layout = {
+      const layout = isDark ? {
         paper_bgcolor: '#0a0a0f',
         plot_bgcolor:  '#0d1117',
         margin: { t: 28, r: 16, b: 40, l: 52 },
@@ -51,13 +53,33 @@ function PlotlyChart({ traces, title, yLabel, divId }: ChartProps) {
           x: 1, xanchor: 'right', y: 1,
         },
         height: 220,
+      } : {
+        paper_bgcolor: '#f8fafc',
+        plot_bgcolor:  '#ffffff',
+        margin: { t: 28, r: 16, b: 40, l: 52 },
+        title: { text: title, font: { family: 'JetBrains Mono, monospace', size: 11, color: '#64748b' }, x: 0.01 },
+        xaxis: {
+          title: { text: 't (s)', font: { size: 10, color: '#64748b' } },
+          color: '#94a3b8', gridcolor: '#e2e8f0', zerolinecolor: '#cbd5e1',
+          tickfont: { family: 'JetBrains Mono, monospace', size: 9, color: '#64748b' },
+        },
+        yaxis: {
+          title: { text: yLabel, font: { size: 10, color: '#64748b' } },
+          color: '#94a3b8', gridcolor: '#e2e8f0', zerolinecolor: '#cbd5e1',
+          tickfont: { family: 'JetBrains Mono, monospace', size: 9, color: '#64748b' },
+        },
+        legend: {
+          font: { family: 'JetBrains Mono, monospace', size: 9, color: '#64748b' },
+          bgcolor: 'rgba(255,255,255,0.8)', bordercolor: '#e2e8f0', borderwidth: 1,
+          x: 1, xanchor: 'right', y: 1,
+        },
+        height: 220,
       }
       const config = { displayModeBar: false, responsive: true }
       Plotly.react(divRef.current, data, layout, config)
     })
-  }, [traces, title, yLabel])
+  }, [traces, title, yLabel, isDark])
 
-  // Render after mount and on data change
   const ref = useCallback((node: HTMLDivElement | null) => {
     (divRef as any).current = node
     if (node) renderChart()
@@ -76,17 +98,17 @@ function ParamField({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="w-5 text-right text-[10px] font-mono text-slate-500 shrink-0">{symbol}</div>
+      <div className="w-5 text-right text-[10px] font-mono text-slate-500 dark:text-slate-500 shrink-0">{symbol}</div>
       <input
         type="number" step={step} min={min} max={max}
         value={value}
         onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v) }}
-        className="w-24 bg-[#0a0a0f] border border-slate-800 rounded px-2 py-1 text-[10px] font-mono
-                   text-slate-200 tabular-nums focus:outline-none focus:border-cyan-500/50 text-right"
+        className="w-24 bg-slate-100 dark:bg-[#0a0a0f] border border-slate-300 dark:border-slate-800 rounded px-2 py-1 text-[10px] font-mono
+                   text-slate-800 dark:text-slate-200 tabular-nums focus:outline-none focus:border-cyan-500/50 text-right"
       />
       <div className="flex-1 min-w-0">
-        <div className="text-[9px] font-mono text-slate-600 leading-none">{label}</div>
-        <div className="text-[8px] font-mono text-slate-800 leading-none mt-0.5">{unit}</div>
+        <div className="text-[9px] font-mono text-slate-500 dark:text-slate-600 leading-none">{label}</div>
+        <div className="text-[8px] font-mono text-slate-400 dark:text-slate-800 leading-none mt-0.5">{unit}</div>
       </div>
     </div>
   )
@@ -96,7 +118,7 @@ function ParamField({
 
 function SectionHead({ label }: { label: string }) {
   return (
-    <div className="text-[8px] font-mono tracking-[0.25em] text-slate-700 uppercase mt-4 mb-1.5">
+    <div className="text-[8px] font-mono tracking-[0.25em] text-slate-400 dark:text-slate-700 uppercase mt-4 mb-1.5">
       {label}
     </div>
   )
@@ -106,6 +128,8 @@ function SectionHead({ label }: { label: string }) {
 
 export default function Dashboard() {
   const router = useRouter()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [params, setParams] = useState<SimParams>(DEFAULT_PARAMS)
   const [result, setResult] = useState<SimResult | null>(null)
   const [running, setRunning] = useState(false)
@@ -154,34 +178,34 @@ export default function Dashboard() {
   const traces = result ? makeTraces(result) : null
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0a0a0f]">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-[#0a0a0f]">
 
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 h-10
-                      bg-black/60 backdrop-blur border-b border-slate-800/80">
+                      bg-white/80 dark:bg-black/60 backdrop-blur border-b border-slate-200 dark:border-slate-800/80">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/')}
-            className="text-[10px] font-mono text-slate-600 hover:text-orange-400 transition-colors"
+            className="text-[10px] font-mono text-slate-500 dark:text-slate-600 hover:text-orange-400 transition-colors"
           >
             ← HOME
           </button>
-          <span className="text-slate-800">|</span>
+          <span className="text-slate-300 dark:text-slate-800">|</span>
           <span className="text-[11px] font-mono font-bold tracking-widest text-orange-400">
             INTELLIGENT CONTROL
           </span>
-          <span className="text-[10px] font-mono text-slate-600">2-DOF · Computed Torque · RK4</span>
+          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-600">2-DOF · Computed Torque · RK4</span>
         </div>
 
         {elapsed !== null && (
-          <span className="text-[9px] font-mono text-slate-600">
+          <span className="text-[9px] font-mono text-slate-500 dark:text-slate-600">
             computed in <span className="text-emerald-500">{elapsed.toFixed(0)} ms</span>
           </span>
         )}
       </div>
 
       {/* ── Left parameter panel ─────────────────────────────────────────────── */}
-      <div className="w-72 shrink-0 h-full pt-10 bg-[#0d1117] border-r border-slate-800/80
+      <div className="w-72 shrink-0 h-full pt-10 bg-white dark:bg-[#0d1117] border-r border-slate-200 dark:border-slate-800/80
                       overflow-y-auto flex flex-col">
         <div className="px-4 pt-4 flex-1">
 
@@ -210,14 +234,14 @@ export default function Dashboard() {
           </div>
 
           {/* Stability analysis (live) */}
-          <div className="mt-3 rounded border border-slate-800/60 bg-black/30 px-3 py-2.5 space-y-1">
-            <div className="text-[8px] font-mono tracking-[0.2em] text-slate-700 uppercase mb-1.5">
+          <div className="mt-3 rounded border border-slate-200 dark:border-slate-800/60 bg-slate-100/50 dark:bg-black/30 px-3 py-2.5 space-y-1">
+            <div className="text-[8px] font-mono tracking-[0.2em] text-slate-400 dark:text-slate-700 uppercase mb-1.5">
               Closed-Loop Analysis  (ë + Kᵣė + αe = 0)
             </div>
             <AnalysisRow label="ωₙ = √α"         value={stab.wn.toFixed(3)}    unit="rad/s" />
             <AnalysisRow label="ζ = Kᵣ/(2ωₙ)"   value={stab.zeta.toFixed(3)}   unit="" />
             <AnalysisRow label="Regime"            value={stab.regime}           unit="" />
-            <div className="text-[9px] font-mono text-slate-600 pt-1 leading-tight break-all">
+            <div className="text-[9px] font-mono text-slate-500 dark:text-slate-600 pt-1 leading-tight break-all">
               {stab.lambda}
             </div>
             <div className={`text-[9px] font-mono font-bold mt-1
@@ -238,7 +262,7 @@ export default function Dashboard() {
           </div>
 
           {/* Step count info */}
-          <div className="mt-2 text-[8px] font-mono text-slate-700">
+          <div className="mt-2 text-[8px] font-mono text-slate-400 dark:text-slate-700">
             {Math.floor(params.tEnd / params.dt).toLocaleString()} integration steps
           </div>
         </div>
@@ -260,13 +284,13 @@ export default function Dashboard() {
       </div>
 
       {/* ── Right chart area ─────────────────────────────────────────────────── */}
-      <div className="flex-1 pt-10 overflow-y-auto bg-[#0a0a0f]">
+      <div className="flex-1 pt-10 overflow-y-auto bg-slate-50 dark:bg-[#0a0a0f]">
         {!result ? (
           <div className="h-full flex flex-col items-center justify-center gap-3">
-            <div className="text-[10px] font-mono text-slate-700 tracking-widest">
+            <div className="text-[10px] font-mono text-slate-400 dark:text-slate-700 tracking-widest">
               SİMÜLASYON HENÜZ ÇALIŞTIRILMADI
             </div>
-            <div className="text-[9px] font-mono text-slate-800">
+            <div className="text-[9px] font-mono text-slate-400 dark:text-slate-800">
               Parametreleri ayarlayın ve &ldquo;SİMÜLASYON ÇALIŞTIR&rdquo; butonuna basın
             </div>
           </div>
@@ -280,6 +304,7 @@ export default function Dashboard() {
                 traces={traces!.angles}
                 title="Eklem Açıları — Gerçek vs İstenen"
                 yLabel="q (rad)"
+                isDark={isDark}
               />
             </ChartPanel>
 
@@ -290,6 +315,7 @@ export default function Dashboard() {
                 traces={traces!.errors}
                 title="Takip Hatası  |  eᵢ = q_dᵢ − qᵢ"
                 yLabel="e (rad)"
+                isDark={isDark}
               />
             </ChartPanel>
 
@@ -300,6 +326,7 @@ export default function Dashboard() {
                 traces={traces!.torques}
                 title="Kontrol Momentleri  |  τ = M(q)·v + Vm(q,q̇)·q̇ + Fd·q̇"
                 yLabel="τ (N·m)"
+                isDark={isDark}
               />
             </ChartPanel>
 
@@ -323,10 +350,10 @@ function ChartPanel({ title, subtitle, children }: {
   title: string; subtitle: string; children: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-slate-800/80 bg-[#0d1117] overflow-hidden">
-      <div className="px-4 py-2 border-b border-slate-800/60 flex items-baseline gap-2">
-        <span className="text-[10px] font-mono font-bold text-slate-300">{title}</span>
-        <span className="text-[9px] font-mono text-slate-600">{subtitle}</span>
+    <div className="rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0d1117] overflow-hidden">
+      <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800/60 flex items-baseline gap-2">
+        <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300">{title}</span>
+        <span className="text-[9px] font-mono text-slate-500 dark:text-slate-600">{subtitle}</span>
       </div>
       <div className="p-2">{children}</div>
     </div>
@@ -336,9 +363,9 @@ function ChartPanel({ title, subtitle, children }: {
 function AnalysisRow({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <div className="flex items-baseline justify-between">
-      <span className="text-[9px] font-mono text-slate-600">{label}</span>
-      <span className="text-[10px] font-mono text-slate-300 tabular-nums">
-        {value}{unit && <span className="text-slate-600 ml-1 text-[8px]">{unit}</span>}
+      <span className="text-[9px] font-mono text-slate-500 dark:text-slate-600">{label}</span>
+      <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 tabular-nums">
+        {value}{unit && <span className="text-slate-400 dark:text-slate-600 ml-1 text-[8px]">{unit}</span>}
       </span>
     </div>
   )
@@ -348,12 +375,12 @@ function StatCard({ label, value, unit, color }: {
   label: string; value: string; unit: string; color: string
 }) {
   return (
-    <div className="rounded border border-slate-800 bg-black/30 px-3 py-2.5">
-      <div className="text-[8px] font-mono text-slate-600 mb-1">{label}</div>
+    <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-black/30 px-3 py-2.5">
+      <div className="text-[8px] font-mono text-slate-500 dark:text-slate-600 mb-1">{label}</div>
       <div className="text-base font-mono font-bold tabular-nums" style={{ color }}>
         {value}
       </div>
-      <div className="text-[8px] font-mono text-slate-700">{unit}</div>
+      <div className="text-[8px] font-mono text-slate-400 dark:text-slate-700">{unit}</div>
     </div>
   )
 }
