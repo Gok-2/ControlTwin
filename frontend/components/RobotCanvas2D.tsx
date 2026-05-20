@@ -206,7 +206,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, customLinkL
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const links = customLinkLengths && customLinkLengths.length === LINK_LENGTHS[model].length
+    const links = customLinkLengths && customLinkLengths.length > 0
       ? customLinkLengths
       : LINK_LENGTHS[model]
     let lastX = NaN, lastY = NaN

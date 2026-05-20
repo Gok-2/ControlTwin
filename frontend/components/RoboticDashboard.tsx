@@ -47,6 +47,7 @@ export default function RoboticDashboard() {
   const [customRobots, setCustomRobots]   = useState<CustomRobot[]>([])
   const [selectedId, setSelectedId]       = useState<string>('2r')
   const [kinMode, setKinMode]             = useState<KinMode>('demo')
+  const [viewMode3D, setViewMode3D]       = useState(false)
   const [fkDeg, setFkDeg]                 = useState([45, 60, 30, 0, 0])
   const [ikTarget, setIkTarget]           = useState({ x: 1.8, y: 1.0, phi: 0.0 })
   const [ikValid, setIkValid]             = useState(true)
@@ -71,6 +72,11 @@ export default function RoboticDashboard() {
   const currentRobot           = allRobots.find(r => r.id === selectedId) ?? STANDARD_ROBOTS[0]
   const isCustom               = currentRobot.kind === 'custom'
   const isStandard             = currentRobot.kind === 'standard'
+
+  // Exit IK when switching to 3D (IK is 2D-only)
+  useEffect(() => {
+    if (viewMode3D && kinMode === 'ik') setKinMode('demo')
+  }, [viewMode3D]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isStandard) return
@@ -118,6 +124,18 @@ export default function RoboticDashboard() {
       )
     : []
 
+  // Standard robot expressed as CustomJoint[] for the 3D canvas
+  const standardAs3DJoints: CustomJoint[] = standardRobot
+    ? (customLinks[standardRobot.id] ?? standardRobot.defaultLinks).map(l => ({ type: 'R' as const, length: l }))
+    : []
+
+  // IK angles in 3D: use ikAngles if available, else zeros
+  const standard3DValues = (() => {
+    if (kinMode === 'fk') return fkRad.slice(0, standardRobot?.dof ?? 0)
+    if (kinMode === 'ik' && ikAngles.length) return ikAngles
+    return []
+  })()
+
   /* ── render ─────────────────────────────────────────────────────────────── */
 
   return (
@@ -139,17 +157,39 @@ export default function RoboticDashboard() {
             ROBOTİK SİSTEMLER
           </span>
         </div>
-        {isStandard && (
-          <button
-            onClick={() => setShowWorkspace(true)}
-            className="text-xs font-mono text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-300
-                       border border-slate-200 dark:border-slate-800
-                       hover:border-cyan-400/60 dark:hover:border-cyan-500/40
-                       px-3 py-1 rounded transition-all"
-          >
-            WORKSPACE YÜZEYİ ↗
-          </button>
-        )}
+
+        <div className="flex items-center gap-4">
+          {/* 2D / 3D view toggle */}
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] font-mono transition-colors select-none ${!viewMode3D ? 'text-cyan-600 dark:text-cyan-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>
+              2D
+            </span>
+            <button
+              onClick={() => setViewMode3D(v => !v)}
+              className={`relative w-10 h-[22px] rounded-full transition-colors duration-200 focus:outline-none
+                ${viewMode3D ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+              title={viewMode3D ? '3D görünüm aktif — 2D için tıkla' : '2D görünüm aktif — 3D için tıkla'}
+            >
+              <span className={`absolute top-[3px] left-[3px] w-4 h-4 bg-white rounded-full shadow-sm
+                                transition-transform duration-200 ${viewMode3D ? 'translate-x-[18px]' : 'translate-x-0'}`} />
+            </button>
+            <span className={`text-[11px] font-mono transition-colors select-none ${viewMode3D ? 'text-cyan-600 dark:text-cyan-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>
+              3D
+            </span>
+          </div>
+
+          {isStandard && !viewMode3D && (
+            <button
+              onClick={() => setShowWorkspace(true)}
+              className="text-xs font-mono text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-300
+                         border border-slate-200 dark:border-slate-800
+                         hover:border-cyan-400/60 dark:hover:border-cyan-500/40
+                         px-3 py-1 rounded transition-all"
+            >
+              WORKSPACE YÜZEYİ ↗
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 min-h-0">
@@ -176,7 +216,7 @@ export default function RoboticDashboard() {
                   <div>
                     <div className="font-semibold text-[13px]">{r.label}</div>
                     <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      {r.dof}-DOF · {r.kind === 'custom' ? '3D Görünüm' : (r as StandardRobot).sub}
+                      {r.dof}-DOF · {r.kind === 'custom' ? 'Özel Robot' : (r as StandardRobot).sub}
                     </div>
                   </div>
                 </button>
@@ -258,8 +298,8 @@ export default function RoboticDashboard() {
 
           <Divider />
 
-          {/* Özelleştir */}
-          {isStandard && standardRobot && (
+          {/* Özelleştir — only in 2D mode for standard robots */}
+          {isStandard && standardRobot && !viewMode3D && (
             <>
               <SideSection label="ROBOT ÖZELLEŞTİR">
                 <div className="space-y-3">
@@ -302,9 +342,11 @@ export default function RoboticDashboard() {
           {/* Kinematik */}
           <SideSection label="KİNEMATİK">
             <div className="space-y-3">
+
+              {/* Mode selector — standard robots */}
               {isStandard && (
                 <div className="flex gap-1">
-                  {(['demo', 'fk', 'ik'] as KinMode[]).map(m => (
+                  {(['demo', 'fk', ...(!viewMode3D ? ['ik'] : [])] as KinMode[]).map(m => (
                     <button key={m} onClick={() => setKinMode(m)}
                       className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all
                         ${kinMode === m
@@ -317,42 +359,33 @@ export default function RoboticDashboard() {
                 </div>
               )}
 
-              {isCustom && customRobot && (
-                <div className="space-y-3">
-                  <div className="flex gap-1">
-                    {(['demo', 'fk'] as const).map(m => (
-                      <button key={m} onClick={() => setKinMode(m)}
-                        className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all
-                          ${kinMode === m
-                            ? 'border-cyan-500/50 text-cyan-700 dark:text-cyan-400 bg-cyan-500/10'
-                            : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-700 dark:hover:text-slate-300'
-                          }`}>
-                        {m.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                  {kinMode === 'demo' && (
-                    <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
-                      Sinüsoidal demo hareketi. FK seçerek eklem açılarını kontrol edin.
-                    </p>
-                  )}
-                  {kinMode === 'fk' && customRobot.joints.map((joint, i) => (
-                    <JointSlider3D key={i} index={i} jointType={joint.type} maxLen={joint.length}
-                      value={fk3DDeg[i] ?? 0}
-                      onChange={v => setFk3DDeg(prev => { const a = [...prev]; a[i] = v; return a })} />
+              {/* Mode selector — custom robots */}
+              {isCustom && (
+                <div className="flex gap-1">
+                  {(['demo', 'fk'] as const).map(m => (
+                    <button key={m} onClick={() => setKinMode(m)}
+                      className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all
+                        ${kinMode === m
+                          ? 'border-cyan-500/50 text-cyan-700 dark:text-cyan-400 bg-cyan-500/10'
+                          : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}>
+                      {m.toUpperCase()}
+                    </button>
                   ))}
-                  <EEReadout3D pos={ee3DPos} />
                 </div>
               )}
 
+              {/* ── Standard robot controls ── */}
               {isStandard && standardRobot && (
                 <>
                   {kinMode === 'demo' && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
-                        Özerk sinüsoidal yörünge. FK veya IK'ya geçerek interaktif kontrol yapın.
+                        {viewMode3D ? '3D demo yörünge — fare ile döndürün.' : 'Özerk sinüsoidal yörünge. FK veya IK\'ya geçerek interaktif kontrol yapın.'}
                       </p>
-                      <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />
+                      {viewMode3D
+                        ? <EEReadout3D pos={ee3DPos} />
+                        : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
                     </div>
                   )}
                   {kinMode === 'fk' && (
@@ -361,10 +394,12 @@ export default function RoboticDashboard() {
                         <JointSlider key={i} index={i} value={fkDeg[i] ?? 0}
                           onChange={v => setFkDeg(prev => { const a = [...prev]; a[i] = v; return a })} />
                       ))}
-                      <EEReadout label="UÇ KONUM" pos={eePos} />
+                      {viewMode3D
+                        ? <EEReadout3D pos={ee3DPos} />
+                        : <EEReadout label="UÇ KONUM" pos={eePos} />}
                     </div>
                   )}
-                  {kinMode === 'ik' && (
+                  {kinMode === 'ik' && !viewMode3D && (
                     <div className="space-y-2">
                       <NumInput label="Hedef X (m)" value={ikTarget.x} step={0.05}
                         onChange={v => setIkTarget(p => ({ ...p, x: v }))} />
@@ -396,10 +431,29 @@ export default function RoboticDashboard() {
                   )}
                 </>
               )}
+
+              {/* ── Custom robot controls ── */}
+              {isCustom && customRobot && (
+                <div className="space-y-3">
+                  {kinMode === 'demo' && (
+                    <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
+                      {viewMode3D ? '3D demo — fare ile döndürün.' : '2D demo yörünge. FK seçerek eklem açılarını kontrol edin.'}
+                    </p>
+                  )}
+                  {kinMode === 'fk' && customRobot.joints.map((joint, i) => (
+                    <JointSlider3D key={i} index={i} jointType={joint.type} maxLen={joint.length}
+                      value={fk3DDeg[i] ?? 0}
+                      onChange={v => setFk3DDeg(prev => { const a = [...prev]; a[i] = v; return a })} />
+                  ))}
+                  {viewMode3D
+                    ? <EEReadout3D pos={ee3DPos} />
+                    : <EEReadout label="UÇ ETKİLEYİCİ" pos={eePos} />}
+                </div>
+              )}
             </div>
           </SideSection>
 
-          {isStandard && standardRobot && (
+          {isStandard && standardRobot && !viewMode3D && (
             <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800/60 shrink-0 mt-auto">
               <div className="text-[10px] font-mono text-slate-400 dark:text-slate-700 leading-relaxed">
                 {(customLinks[standardRobot.id] ?? standardRobot.defaultLinks)
@@ -411,10 +465,12 @@ export default function RoboticDashboard() {
 
         {/* Main canvas */}
         <div className="relative flex-1 h-full">
-          {isStandard && standardRobot && (
+
+          {/* Standard robot — 2D */}
+          {isStandard && standardRobot && !viewMode3D && (
             <>
               <RobotCanvas2D
-                key={selectedId}
+                key={`${selectedId}-2d`}
                 model={standardRobot.id}
                 mode={kinMode === 'fk' ? 'fk' : kinMode === 'ik' ? 'ik' : 'demo'}
                 angles={kinMode === 'fk' ? fkRad : undefined}
@@ -422,27 +478,54 @@ export default function RoboticDashboard() {
                 customLinkLengths={customLinks[standardRobot.id]}
                 onEEUpdate={handleEEUpdate2D}
               />
-              <div className="absolute top-3 left-3 pointer-events-none">
-                <div className="text-xs font-mono tracking-widest text-cyan-500 dark:text-cyan-400">{standardRobot.label.toUpperCase()}</div>
-                <div className="text-[10px] font-mono text-slate-400 dark:text-slate-600 mt-0.5">
-                  {kinMode === 'demo' ? 'DEMO YÖRÜNGE' : kinMode === 'fk' ? 'İLERİ KİNEMATİK' : 'TERS KİNEMATİK'}
-                </div>
-              </div>
+              <CanvasLabel title={standardRobot.label.toUpperCase()}
+                subtitle={kinMode === 'demo' ? 'DEMO YÖRÜNGE' : kinMode === 'fk' ? 'İLERİ KİNEMATİK' : 'TERS KİNEMATİK'} />
             </>
           )}
-          {isCustom && customRobot && (
+
+          {/* Standard robot — 3D */}
+          {isStandard && standardRobot && viewMode3D && (
             <>
               <RobotCanvas3D
-                key={selectedId}
+                key={`${selectedId}-3d`}
+                joints={standardAs3DJoints}
+                jointValues={kinMode === 'demo' ? [] : standard3DValues}
+                mode={kinMode === 'demo' ? 'demo' : 'fk'}
+                onEEUpdate={handleEEUpdate3D}
+              />
+              <CanvasLabel title={standardRobot.label.toUpperCase()}
+                subtitle={kinMode === 'demo' ? '3D DEMO — fare ile döndürün' : '3D İLERİ KİNEMATİK — fare ile döndürün'} />
+            </>
+          )}
+
+          {/* Custom robot — 3D */}
+          {isCustom && customRobot && viewMode3D && (
+            <>
+              <RobotCanvas3D
+                key={`${selectedId}-3d`}
                 joints={customRobot.joints}
                 jointValues={kinMode === 'fk' ? fk3DValues : []}
                 mode={kinMode === 'fk' ? 'fk' : 'demo'}
                 onEEUpdate={handleEEUpdate3D}
               />
-              <div className="absolute top-3 left-3 pointer-events-none">
-                <div className="text-xs font-mono tracking-widest text-cyan-500 dark:text-cyan-400">{customRobot.label.toUpperCase()}</div>
-                <div className="text-[10px] font-mono text-slate-400 dark:text-slate-600 mt-0.5">3D İNTERAKTİF GÖRÜNÜM — fare ile döndürün</div>
-              </div>
+              <CanvasLabel title={customRobot.label.toUpperCase()}
+                subtitle="3D İNTERAKTİF — fare ile döndürün" />
+            </>
+          )}
+
+          {/* Custom robot — 2D */}
+          {isCustom && customRobot && !viewMode3D && (
+            <>
+              <RobotCanvas2D
+                key={`${selectedId}-2d`}
+                model="2r"
+                mode={kinMode === 'fk' ? 'fk' : 'demo'}
+                angles={kinMode === 'fk' ? fk3DValues : undefined}
+                customLinkLengths={customRobot.joints.map(j => j.length)}
+                onEEUpdate={handleEEUpdate2D}
+              />
+              <CanvasLabel title={customRobot.label.toUpperCase()}
+                subtitle="2D PLANAR GÖRÜNÜM" />
             </>
           )}
         </div>
@@ -474,6 +557,15 @@ export default function RoboticDashboard() {
 }
 
 /* ── Sub-components ─────────────────────────────────────────────────────────── */
+
+function CanvasLabel({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="absolute top-3 left-3 pointer-events-none">
+      <div className="text-xs font-mono tracking-widest text-cyan-600 dark:text-cyan-400">{title}</div>
+      <div className="text-[10px] font-mono text-slate-500 dark:text-slate-600 mt-0.5">{subtitle}</div>
+    </div>
+  )
+}
 
 function SideSection({ label, children, collapsible, open, onToggle }: {
   label: string; children: React.ReactNode; collapsible?: boolean; open?: boolean; onToggle?: () => void

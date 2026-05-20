@@ -31,9 +31,8 @@ function computeFK3D(joints: CustomJoint[], values: number[]): THREE.Vector3[] {
 
     if (type === 'R') {
       const rot = new THREE.Matrix4()
-      if (i === 0)      rot.makeRotationY(q)
-      else if (i % 2)  rot.makeRotationZ(q)
-      else              rot.makeRotationX(q)
+      if (i === 0)  rot.makeRotationY(q)   // base: spin around vertical axis
+      else          rot.makeRotationZ(q)   // all others: bend around Z → visible EE motion
       T.multiply(rot)
     } else {
       const d = Math.max(0, Math.min(length, q))
