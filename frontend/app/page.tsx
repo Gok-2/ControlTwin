@@ -114,8 +114,8 @@ export default function Home() {
             Intelligent Control
           </h2>
           <p className="text-[11px] font-mono text-slate-500 leading-relaxed">
-            Real-time 2-DOF computed torque control with live error tracking,
-            interactive gain tuning, and WebSocket telemetry.
+            Computed Torque, Model Reference Adaptive Control (MRAC),
+            and Neural Network adaptive control — compare all three.
           </p>
 
           <div className="mt-8 flex items-center gap-2 text-[9px] font-mono text-orange-600/50 group-hover:text-orange-400/80 transition-colors">
