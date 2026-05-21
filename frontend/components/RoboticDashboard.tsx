@@ -266,7 +266,7 @@ export default function RoboticDashboard() {
       <div className="flex flex-1 min-h-0">
 
         {/* Sidebar */}
-        <div className="w-64 shrink-0 bg-white dark:bg-[#0d1117]
+        <div className="w-80 shrink-0 bg-white dark:bg-[#0d1117]
                         border-r border-slate-200 dark:border-slate-800/80
                         flex flex-col select-none overflow-y-auto">
 
@@ -475,6 +475,12 @@ export default function RoboticDashboard() {
                         {viewMode3D ? '3D demo trajectory — rotate with mouse.' : 'Sinusoidal demo trajectory. Switch to FK or IK for interactive control.'}
                       </p>
                       {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="END EFFECTOR" pos={eePos} />}
+                      {/* Demo mode formula */}
+                      <FormulaBox title="DH Forward Kinematics" lines={[
+                        { eq: 'T₀ⁿ = A₁(q₁)·A₂(q₂)·…·Aₙ(qₙ)', note: 'chain of transforms' },
+                        { eq: 'Aᵢ = Rz(θᵢ)·Tz(dᵢ)·Tx(aᵢ)·Rx(αᵢ)', note: 'DH matrix' },
+                        { eq: 'p_ee = T₀ⁿ · [0,0,0,1]ᵀ', note: 'end-effector position' },
+                      ]} />
                     </div>
                   )}
                   {kinMode === 'fk' && (
@@ -496,6 +502,28 @@ export default function RoboticDashboard() {
                         )
                       })}
                       {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="EE POSITION" pos={eePos} />}
+                      {/* FK formula hints per robot type */}
+                      {standardRobot.id === '2r' && (
+                        <FormulaBox title="2R Forward Kinematics" lines={[
+                          { eq: 'x = L₁c₁ + L₂c₁₂', note: `L₁=${(allLinksStd[0]??0).toFixed(2)} L₂=${(allLinksStd[1]??0).toFixed(2)}` },
+                          { eq: 'y = L₁s₁ + L₂s₁₂', note: 'cᵢⱼ=cos(qᵢ+qⱼ)' },
+                          { eq: 'φ = q₁ + q₂', note: 'end-effector orientation' },
+                        ]} />
+                      )}
+                      {standardRobot.id === '3r' && (
+                        <FormulaBox title="3R Forward Kinematics" lines={[
+                          { eq: 'x = L₁c₁ + L₂c₁₂ + L₃c₁₂₃', note: `L₁…L₃=${allLinksStd.map(l=>l.toFixed(2)).join(',')}` },
+                          { eq: 'y = L₁s₁ + L₂s₁₂ + L₃s₁₂₃', note: 'sᵢⱼₖ=sin(qᵢ+qⱼ+qₖ)' },
+                          { eq: 'φ = q₁+q₂+q₃', note: 'EE orientation' },
+                        ]} />
+                      )}
+                      {standardRobot.id === 'scara' && (
+                        <FormulaBox title="SCARA Forward Kinematics" lines={[
+                          { eq: 'x = L₁c₁ + L₂c₁₂', note: 'horizontal plane' },
+                          { eq: 'y = L₁s₁ + L₂s₁₂', note: 'horizontal plane' },
+                          { eq: 'z = −d₃', note: 'vertical stroke (prismatic)' },
+                        ]} />
+                      )}
                     </div>
                   )}
                   {kinMode === 'ik' && !viewMode3D && (
@@ -537,6 +565,22 @@ export default function RoboticDashboard() {
                             </div>
                           ))}
                         </div>
+                      )}
+                      {/* IK formula hints */}
+                      {rLinksFor2D.length === 2 && (
+                        <FormulaBox title="2R Geometric IK" lines={[
+                          { eq: 'c₂ = (x²+y²−L₁²−L₂²)/(2L₁L₂)', note: 'cosine rule' },
+                          { eq: 'q₂ = atan2(±√(1−c₂²), c₂)', note: 'elbow up / down' },
+                          { eq: 'q₁ = atan2(y,x) − atan2(L₂s₂, L₁+L₂c₂)', note: 'joint 1' },
+                          { eq: 'workspace: |x|+|y| ≤ L₁+L₂', note: 'reachability' },
+                        ]} />
+                      )}
+                      {rLinksFor2D.length >= 3 && (
+                        <FormulaBox title="3R IK — Decoupled" lines={[
+                          { eq: 'wrist = (x−L₃cosφ, y−L₃sinφ)', note: 'wrist centre' },
+                          { eq: 'solve 2R IK for wrist', note: 'q₁,q₂ from 2R' },
+                          { eq: 'q₃ = φ − q₁ − q₂', note: 'orientation constraint' },
+                        ]} />
                       )}
                     </div>
                   )}
@@ -705,6 +749,24 @@ export default function RoboticDashboard() {
 }
 
 /* ── Sub-components ─────────────────────────────────────────────────────────── */
+
+function FormulaLine({ eq, note }: { eq: string; note?: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <code className="text-[10px] font-mono text-cyan-700 dark:text-cyan-400 whitespace-nowrap">{eq}</code>
+      {note && <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600 leading-snug">{note}</span>}
+    </div>
+  )
+}
+
+function FormulaBox({ title, lines }: { title: string; lines: { eq: string; note?: string }[] }) {
+  return (
+    <div className="rounded border border-cyan-400/20 dark:border-cyan-500/15 bg-cyan-50/50 dark:bg-cyan-950/20 px-3 py-2 space-y-1.5">
+      <div className="text-[9px] font-mono tracking-[0.15em] text-cyan-600 dark:text-cyan-500 uppercase mb-1.5">{title}</div>
+      {lines.map((l, i) => <FormulaLine key={i} eq={l.eq} note={l.note} />)}
+    </div>
+  )
+}
 
 function CanvasLabel({ title, subtitle }: { title: string; subtitle: string }) {
   return (

@@ -149,29 +149,35 @@ function NNDiagram({ hiddenSize }: { hiddenSize: number }) {
 
 function SectionHead({ label }: { label: string }) {
   return (
-    <div className="text-[8px] font-mono tracking-[0.25em] text-slate-700 uppercase mt-4 mb-1.5">
+    <div className="text-[9px] font-mono tracking-[0.2em] text-slate-600 uppercase mt-4 mb-2">
       {label}
     </div>
   )
 }
 
-function ParamField({ label, symbol, unit, value, onChange, min, max, step = 0.001 }: {
+function ParamField({ label, symbol, unit, value, onChange, min, max, step = 0.001, hint }: {
   label: string; symbol: string; unit: string; value: number
   onChange: (v: number) => void; min?: number; max?: number; step?: number
+  hint?: string
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-6 text-right text-[10px] font-mono text-slate-500 shrink-0">{symbol}</div>
-      <input
-        type="number" step={step} min={min} max={max} value={value}
-        onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v) }}
-        className="w-24 bg-[#0a0a0f] border border-slate-800 rounded px-2 py-1 text-[10px] font-mono
-                   text-slate-200 tabular-nums focus:outline-none focus:border-cyan-500/50 text-right"
-      />
-      <div className="flex-1 min-w-0">
-        <div className="text-[9px] font-mono text-slate-600 leading-none">{label}</div>
-        <div className="text-[8px] font-mono text-slate-800 leading-none mt-0.5">{unit}</div>
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        <div className="w-8 text-right text-[10px] font-mono text-slate-500 shrink-0">{symbol}</div>
+        <input
+          type="number" step={step} min={min} max={max} value={value}
+          onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v) }}
+          className="w-28 bg-[#0a0a0f] border border-slate-800 rounded px-2 py-1 text-[10px] font-mono
+                     text-slate-200 tabular-nums focus:outline-none focus:border-cyan-500/50 text-right"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] font-mono text-slate-500 leading-none">{label}</div>
+          <div className="text-[9px] font-mono text-slate-700 leading-none mt-0.5">{unit}</div>
+        </div>
       </div>
+      {hint && (
+        <div className="ml-10 text-[8px] font-mono text-cyan-900/80 leading-snug">{hint}</div>
+      )}
     </div>
   )
 }
@@ -210,9 +216,9 @@ function StatCard({ label, value, unit, color }: {
 function AnalysisRow({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <div className="flex items-baseline justify-between">
-      <span className="text-[9px] font-mono text-slate-600">{label}</span>
-      <span className="text-[10px] font-mono text-slate-300 tabular-nums">
-        {value}{unit && <span className="text-slate-600 ml-1 text-[8px]">{unit}</span>}
+      <span className="text-[10px] font-mono text-slate-500">{label}</span>
+      <span className="text-[11px] font-mono text-slate-300 tabular-nums">
+        {value}{unit && <span className="text-slate-500 ml-1 text-[9px]">{unit}</span>}
       </span>
     </div>
   )
@@ -411,48 +417,58 @@ export default function Dashboard() {
       </div>
 
       {/* ── Left panel ──────────────────────────────────────────────────────── */}
-      <div className="w-72 shrink-0 h-full pt-10 bg-[#0d1117] border-r border-slate-800/80
+      <div className="w-96 shrink-0 h-full pt-10 bg-[#0d1117] border-r border-slate-800/80
                       overflow-y-auto flex flex-col">
         <div className="px-4 pt-4 flex-1">
 
           {/* ── CTC panel ──────────────────────────────────────────────────── */}
           {method === 'ctc' && (
             <>
-              <div className="mb-3 rounded border border-orange-500/20 bg-orange-500/5 px-3 py-2">
-                <div className="text-[8px] font-mono text-orange-400/70 mb-1">COMPUTED TORQUE CONTROL</div>
-                <div className="text-[9px] font-mono text-slate-500 leading-relaxed">
+              <div className="mb-3 rounded border border-orange-500/20 bg-orange-500/5 px-3 py-2.5 space-y-1">
+                <div className="text-[9px] font-mono text-orange-400/80 mb-1.5 tracking-wider">COMPUTED TORQUE CONTROL</div>
+                <div className="text-[10px] font-mono text-slate-400 leading-relaxed">
                   τ = M(q)·v + Vm(q,q̇)·q̇ + Fd·q̇
                 </div>
-                <div className="text-[9px] font-mono text-slate-600 leading-relaxed">
+                <div className="text-[10px] font-mono text-slate-500 leading-relaxed">
                   v = q̈d + Kr(q̇d−q̇) + α(qd−q)
                 </div>
-                <div className="text-[8px] font-mono text-emerald-500/70 mt-1">Requires exact model knowledge</div>
+                <div className="text-[9px] font-mono text-slate-600 leading-relaxed">
+                  e = qd−q → ë + Kr·ė + α·e = 0
+                </div>
+                <div className="text-[9px] font-mono text-emerald-500/80 mt-1.5">Requires exact model knowledge</div>
               </div>
 
               <SectionHead label="System Parameters" />
-              <div className="space-y-1.5">
-                <ParamField label="Joint 1 composite inertia" symbol="p₁" unit="kg·m²" value={ctcParams.p1} onChange={setCtc('p1')} min={0.001} />
-                <ParamField label="Joint 2 inertia"           symbol="p₂" unit="kg·m²" value={ctcParams.p2} onChange={setCtc('p2')} min={0.001} />
-                <ParamField label="Coupling inertia"          symbol="p₃" unit="kg·m²" value={ctcParams.p3} onChange={setCtc('p3')} min={0} />
-                <ParamField label="Viscous friction q̇₁"      symbol="p₄" unit="N·m·s" value={ctcParams.p4} onChange={setCtc('p4')} min={0} />
-                <ParamField label="Viscous friction q̇₂"      symbol="p₅" unit="N·m·s" value={ctcParams.p5} onChange={setCtc('p5')} min={0} />
+              <div className="space-y-2">
+                <ParamField label="Joint 1 composite inertia" symbol="p₁" unit="kg·m²" value={ctcParams.p1} onChange={setCtc('p1')} min={0.001}
+                  hint="M(q)₁₁ = p₁ + p₃cos(q₂)  ← top-left inertia matrix entry" />
+                <ParamField label="Joint 2 inertia"           symbol="p₂" unit="kg·m²" value={ctcParams.p2} onChange={setCtc('p2')} min={0.001}
+                  hint="M(q)₂₂ = p₂  ← constant; not q-dependent" />
+                <ParamField label="Coupling inertia"          symbol="p₃" unit="kg·m²" value={ctcParams.p3} onChange={setCtc('p3')} min={0}
+                  hint="M(q)₁₂ = p₃cos(q₂)/2  → Coriolis coupling term" />
+                <ParamField label="Viscous friction q̇₁"      symbol="p₄" unit="N·m·s" value={ctcParams.p4} onChange={setCtc('p4')} min={0}
+                  hint="Fd = diag(p₄, p₅);  τ_friction₁ = p₄·q̇₁" />
+                <ParamField label="Viscous friction q̇₂"      symbol="p₅" unit="N·m·s" value={ctcParams.p5} onChange={setCtc('p5')} min={0}
+                  hint="τ_friction₂ = p₅·q̇₂" />
               </div>
 
               <SectionHead label="Control Gains" />
-              <div className="space-y-1.5">
-                <ParamField label="Derivative gain"   symbol="Kr" unit="—" value={ctcParams.Kr}    onChange={setCtc('Kr')}    min={0} step={0.5} />
-                <ParamField label="Proportional gain" symbol="α"  unit="—" value={ctcParams.alpha} onChange={setCtc('alpha')} min={0} step={0.5} />
+              <div className="space-y-2">
+                <ParamField label="Derivative gain"   symbol="Kr" unit="—" value={ctcParams.Kr}    onChange={setCtc('Kr')}    min={0} step={0.5}
+                  hint="ζ = Kr/(2√α);  Kr > 2√α → overdamped" />
+                <ParamField label="Proportional gain" symbol="α"  unit="—" value={ctcParams.alpha} onChange={setCtc('alpha')} min={0} step={0.5}
+                  hint="ωₙ = √α rad/s;  ts ≈ 4/(ζωₙ)  (settling time)" />
               </div>
 
-              <div className="mt-3 rounded border border-slate-800/60 bg-black/30 px-3 py-2.5 space-y-1">
-                <div className="text-[8px] font-mono tracking-[0.2em] text-slate-700 uppercase mb-1.5">
-                  Closed-Loop  (ë + Kr·ė + α·e = 0)
+              <div className="mt-3 rounded border border-slate-800/60 bg-black/30 px-3 py-2.5 space-y-1.5">
+                <div className="text-[9px] font-mono tracking-[0.15em] text-slate-600 uppercase mb-2">
+                  Closed-Loop Analysis  (ë + Kr·ė + α·e = 0)
                 </div>
                 <AnalysisRow label="ωₙ = √α"       value={stab.wn.toFixed(3)}  unit="rad/s" />
                 <AnalysisRow label="ζ = Kr/(2ωₙ)"  value={stab.zeta.toFixed(3)} unit="" />
                 <AnalysisRow label="Regime"         value={stab.regime}          unit="" />
-                <div className="text-[9px] font-mono text-slate-600 pt-1 break-all">{stab.lambda}</div>
-                <div className={`text-[9px] font-mono font-bold mt-1 ${stab.stable ? 'text-emerald-500' : 'text-red-500'}`}>
+                <div className="text-[9px] font-mono text-slate-500 pt-1 break-all">{stab.lambda}</div>
+                <div className={`text-[10px] font-mono font-bold mt-1 ${stab.stable ? 'text-emerald-500' : 'text-red-500'}`}>
                   {stab.stable ? '✓ STABLE' : '✗ UNSTABLE'}
                 </div>
               </div>
@@ -468,40 +484,49 @@ export default function Dashboard() {
           {/* ── Adaptive panel ─────────────────────────────────────────────── */}
           {method === 'adaptive' && (
             <>
-              <div className="mb-3 rounded border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
-                <div className="text-[8px] font-mono text-cyan-400/70 mb-1">MODEL REFERENCE ADAPTIVE CONTROL</div>
-                <div className="text-[9px] font-mono text-slate-500 leading-relaxed">
+              <div className="mb-3 rounded border border-cyan-500/20 bg-cyan-500/5 px-3 py-2.5 space-y-1">
+                <div className="text-[9px] font-mono text-cyan-400/80 mb-1.5 tracking-wider">MODEL REFERENCE ADAPTIVE CONTROL</div>
+                <div className="text-[10px] font-mono text-slate-400 leading-relaxed">
                   τ = Y(q,q̇,q̇ᵣ,q̈ᵣ)·θ̂ − Kₛ·s
                 </div>
-                <div className="text-[9px] font-mono text-slate-600 leading-relaxed">
-                  θ̂˙ = Γ·Yᵀ·s  (s = ė + λe)
+                <div className="text-[10px] font-mono text-slate-500 leading-relaxed">
+                  θ̂˙ = Γ·Yᵀ·s  where  s = ė + λe
                 </div>
-                <div className="text-[8px] font-mono text-cyan-500/70 mt-1">Works with unknown parameters</div>
+                <div className="text-[9px] font-mono text-slate-600 leading-relaxed">
+                  Lyapunov: V = sᵀs/2 + θ̃ᵀΓ⁻¹θ̃/2 → V̇ ≤ 0
+                </div>
+                <div className="text-[9px] font-mono text-cyan-500/80 mt-1.5">Works with unknown parameters</div>
               </div>
 
               <SectionHead label="True Robot (unknown to controller)" />
-              <div className="space-y-1 mb-2">
+              <div className="space-y-1.5 mb-2">
                 {([['p1','p₁',adaptParams.p1],['p2','p₂',adaptParams.p2],
                    ['p3','p₃',adaptParams.p3],['p4','p₄',adaptParams.p4],
                    ['p5','p₅',adaptParams.p5]] as [keyof AdaptiveParams, string, number][]).map(([k, sym, v]) => (
-                  <ParamField key={k} label="" symbol={sym} unit="" value={v as number} onChange={setAd(k)} min={0.001} />
+                  <ParamField key={k} label="true param" symbol={sym} unit="kg·m²/N·m·s" value={v as number} onChange={setAd(k)} min={0.001} />
                 ))}
               </div>
 
               <SectionHead label="Initial Estimates (wrong on purpose)" />
-              <div className="space-y-1 mb-2">
-                {([['p1_init','p̂₁₀',adaptParams.p1_init],['p2_init','p̂₂₀',adaptParams.p2_init],
-                   ['p3_init','p̂₃₀',adaptParams.p3_init],['p4_init','p̂₄₀',adaptParams.p4_init],
-                   ['p5_init','p̂₅₀',adaptParams.p5_init]] as [keyof AdaptiveParams, string, number][]).map(([k, sym, v]) => (
-                  <ParamField key={k} label="" symbol={sym} unit="" value={v as number} onChange={setAd(k)} />
-                ))}
+              <div className="mb-2 rounded border border-slate-800/60 bg-black/20 px-2 py-1.5">
+                <div className="text-[8px] font-mono text-slate-700 mb-1.5">θ̃ = θ̂ − θ;  set far from true to test convergence</div>
+                <div className="space-y-1.5">
+                  {([['p1_init','p̂₁₀',adaptParams.p1_init],['p2_init','p̂₂₀',adaptParams.p2_init],
+                     ['p3_init','p̂₃₀',adaptParams.p3_init],['p4_init','p̂₄₀',adaptParams.p4_init],
+                     ['p5_init','p̂₅₀',adaptParams.p5_init]] as [keyof AdaptiveParams, string, number][]).map(([k, sym, v]) => (
+                    <ParamField key={k} label="initial estimate" symbol={sym} unit="" value={v as number} onChange={setAd(k)} />
+                  ))}
+                </div>
               </div>
 
               <SectionHead label="Controller Gains" />
-              <div className="space-y-1.5">
-                <ParamField label="Sliding surface" symbol="λ"  unit="—" value={adaptParams.lambda} onChange={setAd('lambda')} min={0} step={0.5} />
-                <ParamField label="Robust term"     symbol="Kₛ" unit="—" value={adaptParams.Ks}     onChange={setAd('Ks')}     min={0} step={0.5} />
-                <ParamField label="Adaptation gain" symbol="Γ"  unit="—" value={adaptParams.gamma}  onChange={setAd('gamma')}  min={0} step={0.1} />
+              <div className="space-y-2">
+                <ParamField label="Sliding surface slope" symbol="λ"  unit="—" value={adaptParams.lambda} onChange={setAd('lambda')} min={0} step={0.5}
+                  hint="s = ė + λe;  s→0 ensures e(t)→0 exponentially" />
+                <ParamField label="Robust damping"        symbol="Kₛ" unit="—" value={adaptParams.Ks}     onChange={setAd('Ks')}     min={0} step={0.5}
+                  hint="−Kₛ·s counters disturbances;  ‖τ_dist‖ ≤ Kₛ" />
+                <ParamField label="Adaptation rate"       symbol="Γ"  unit="—" value={adaptParams.gamma}  onChange={setAd('gamma')}  min={0} step={0.1}
+                  hint="θ̂˙ = Γ·Yᵀ·s;  large Γ → fast but noisy convergence" />
               </div>
 
               <SectionHead label="Simulation" />
@@ -515,40 +540,47 @@ export default function Dashboard() {
           {/* ── NN panel ───────────────────────────────────────────────────── */}
           {method === 'nn' && (
             <>
-              <div className="mb-3 rounded border border-violet-500/20 bg-violet-500/5 px-3 py-2">
-                <div className="text-[8px] font-mono text-violet-400/70 mb-1">NEURAL NETWORK ADAPTIVE CONTROL</div>
-                <div className="text-[9px] font-mono text-slate-500 leading-relaxed">
+              <div className="mb-3 rounded border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 space-y-1">
+                <div className="text-[9px] font-mono text-violet-400/80 mb-1.5 tracking-wider">NEURAL NETWORK ADAPTIVE CONTROL</div>
+                <div className="text-[10px] font-mono text-slate-400 leading-relaxed">
                   τ = τ̂_NN(x;W) + Kv·s
                 </div>
-                <div className="text-[9px] font-mono text-slate-600 leading-relaxed">
-                  ΔW = η·∂τ_NN/∂W·s
+                <div className="text-[10px] font-mono text-slate-500 leading-relaxed">
+                  ΔW = η · σ'(W₁x) · s  (online update)
                 </div>
-                <div className="text-[8px] font-mono text-violet-500/70 mt-1">Online learning — no prior model</div>
+                <div className="text-[9px] font-mono text-slate-600 leading-relaxed">
+                  x = [q, q̇, qd, q̇d]ᵀ ∈ ℝ⁸,  τ̂_NN = W₂·tanh(W₁x)
+                </div>
+                <div className="text-[9px] font-mono text-violet-500/80 mt-1.5">Online learning — no prior model</div>
               </div>
 
               <SectionHead label="Network Architecture" />
               <div className="mt-1 mb-3">
                 <NNDiagram hiddenSize={nnParams.hiddenSize} />
-                <div className="text-[8px] font-mono text-slate-700 mt-1 text-center">
+                <div className="text-[9px] font-mono text-slate-600 mt-1.5 text-center">
                   8 → {nnParams.hiddenSize} → 2  (tanh hidden, linear output)
                 </div>
               </div>
 
               <SectionHead label="True Robot Parameters" />
-              <div className="space-y-1 mb-2">
+              <div className="space-y-1.5 mb-2">
                 {([['p1','p₁',nnParams.p1],['p2','p₂',nnParams.p2],
                    ['p3','p₃',nnParams.p3],['p4','p₄',nnParams.p4],
                    ['p5','p₅',nnParams.p5]] as [keyof NNParams, string, number][]).map(([k, sym, v]) => (
-                  <ParamField key={k} label="" symbol={sym} unit="" value={v as number} onChange={setNN(k)} min={0.001} />
+                  <ParamField key={k} label="true param (NN learns these)" symbol={sym} unit="kg·m²/N·m·s" value={v as number} onChange={setNN(k)} min={0.001} />
                 ))}
               </div>
 
               <SectionHead label="Learning Parameters" />
-              <div className="space-y-1.5">
-                <ParamField label="Sliding surface" symbol="λ"  unit="—"  value={nnParams.lambda}     onChange={setNN('lambda')}     min={0} step={0.5} />
-                <ParamField label="Feedback gain"   symbol="Kv" unit="—"  value={nnParams.Kv}         onChange={setNN('Kv')}         min={0} step={0.5} />
-                <ParamField label="Learning rate"   symbol="η"  unit="—"  value={nnParams.eta}        onChange={setNN('eta')}        min={0} step={0.001} />
-                <ParamField label="Hidden neurons"  symbol="H"  unit="—"  value={nnParams.hiddenSize} onChange={v => setNNParams(p => ({ ...p, hiddenSize: Math.round(v) }))} min={4} max={20} step={1} />
+              <div className="space-y-2">
+                <ParamField label="Sliding surface slope" symbol="λ"  unit="—"  value={nnParams.lambda}     onChange={setNN('lambda')}     min={0} step={0.5}
+                  hint="s = ė + λe;  drives NN to learn inverse dynamics" />
+                <ParamField label="PD feedback gain"      symbol="Kv" unit="—"  value={nnParams.Kv}         onChange={setNN('Kv')}         min={0} step={0.5}
+                  hint="τ_fb = Kv·s;  baseline while NN weight norms grow" />
+                <ParamField label="Learning rate"         symbol="η"  unit="—"  value={nnParams.eta}        onChange={setNN('eta')}        min={0} step={0.001}
+                  hint="ΔW ∝ η·s;  large η → fast but may oscillate" />
+                <ParamField label="Hidden neurons"        symbol="H"  unit="—"  value={nnParams.hiddenSize} onChange={v => setNNParams(p => ({ ...p, hiddenSize: Math.round(v) }))} min={4} max={20} step={1}
+                  hint="‖W₁‖_F grows over time (plot: weight norm chart)" />
               </div>
 
               <SectionHead label="Simulation" />
