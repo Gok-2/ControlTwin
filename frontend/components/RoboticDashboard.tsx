@@ -18,8 +18,9 @@ interface StandardRobot {
   sub: string
   dof: number
   defaultLinks: number[]
-  jointTypes?: ('R' | 'P')[]           // defaults to all-R when absent
-  prismaticDirs?: ([number,number,number] | undefined)[]  // per-joint prismaticDir for 3D canvas
+  jointTypes?: ('R' | 'P')[]
+  prismaticDirs?: ([number,number,number] | undefined)[]
+  rotationAxes?: (('X' | 'Y' | 'Z') | undefined)[]  // per-joint rotation axis for R joints
 }
 
 interface CustomRobot {
@@ -47,7 +48,8 @@ const STANDARD_ROBOTS: StandardRobot[] = [
     kind: 'standard', id: 'scara', label: 'SCARA', sub: 'R–R–P · 3 DOF',
     dof: 3, defaultLinks: [0.65, 0.48, 0.30],
     jointTypes:    ['R', 'R', 'P'],
-    prismaticDirs: [undefined, undefined, [0, -1, 0]],  // Z actuator moves downward (-Y in Three.js)
+    prismaticDirs: [undefined, undefined, [0, -1, 0]],  // vertical stroke: downward (-Y in Three.js)
+    rotationAxes:  ['Y', 'Y', undefined],               // both revolute joints sweep in horizontal plane
   },
 ]
 
@@ -157,6 +159,7 @@ export default function RoboticDashboard() {
     type: standardRobot?.jointTypes?.[i] ?? 'R',
     length: l,
     prismaticDir: standardRobot?.prismaticDirs?.[i],
+    rotationAxis: standardRobot?.rotationAxes?.[i] as 'X' | 'Y' | 'Z' | undefined,
   }))
 
   // FK/IK values for the 3D canvas
@@ -625,15 +628,17 @@ export default function RoboticDashboard() {
             </>
           )}
 
-          {/* Custom robot — 2D */}
+          {/* Custom robot — 2D (only revolute joints; P joints are 3D-only) */}
           {isCustom && customRobot && !viewMode3D && (
             <>
               <RobotCanvas2D
                 key={`${selectedId}-2d`}
                 model="2r"
                 mode={kinMode === 'fk' ? 'fk' : 'demo'}
-                angles={kinMode === 'fk' ? fk3DValues : undefined}
-                customLinkLengths={customRobot.joints.map(j => j.length)}
+                angles={kinMode === 'fk'
+                  ? fk3DValues.filter((_, i) => customRobot.joints[i]?.type === 'R')
+                  : undefined}
+                customLinkLengths={customRobot.joints.filter(j => j.type === 'R').map(j => j.length)}
                 isDark={isDark}
                 onEEUpdate={handleEEUpdate2D}
               />

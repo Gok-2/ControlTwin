@@ -9,8 +9,10 @@ export interface CustomJoint {
   type: JointType
   length: number
   name?: string
-  /** Translation direction for P joints in Three.js world space. Default [1,0,0] (along link axis). */
+  /** Translation direction for P joints in the local frame. Default [1,0,0] (along link axis). */
   prismaticDir?: [number, number, number]
+  /** Rotation axis for R joints. Default: 'Y' for joint 0 (base spin), 'Z' for others (elbow bend). */
+  rotationAxis?: 'X' | 'Y' | 'Z'
 }
 
 interface Props {
@@ -34,15 +36,19 @@ function computeFK3D(joints: CustomJoint[], values: number[]): THREE.Vector3[] {
 
     if (type === 'R') {
       const rot = new THREE.Matrix4()
-      if (i === 0)  rot.makeRotationY(q)   // base: spin around vertical axis
-      else          rot.makeRotationZ(q)   // all others: bend around Z → visible EE motion
+      const axis = joints[i].rotationAxis ?? (i === 0 ? 'Y' : 'Z')
+      if      (axis === 'Y') rot.makeRotationY(q)
+      else if (axis === 'X') rot.makeRotationX(q)
+      else                   rot.makeRotationZ(q)
       T.multiply(rot)
+      // R joints: advance to next joint along local X
+      T.multiply(new THREE.Matrix4().makeTranslation(length, 0, 0))
     } else {
+      // P joints: translate only along prismatic direction — no extra link-length offset
       const d = Math.max(0, Math.min(length, q))
       const [dx, dy, dz] = joints[i].prismaticDir ?? [1, 0, 0]
       T.multiply(new THREE.Matrix4().makeTranslation(dx * d, dy * d, dz * d))
     }
-    T.multiply(new THREE.Matrix4().makeTranslation(length, 0, 0))
     points.push(new THREE.Vector3().applyMatrix4(T))
   }
 
