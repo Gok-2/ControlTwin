@@ -227,10 +227,13 @@ export default function RobotCanvas3D({ joints, jointValues, mode, isDark, onEEU
     import('three/examples/jsm/controls/OrbitControls.js').then(({ OrbitControls }) => {
       controls = new OrbitControls(cam, renderer.domElement)
       controls.target.set(0, 1, 0)
-      controls.enableDamping = true
-      controls.dampingFactor = 0.06
-      controls.minDistance = 1.5
-      controls.maxDistance = 25
+      controls.enableDamping    = true
+      controls.dampingFactor    = 0.06
+      controls.minDistance      = 0.3   // allow close inspection of small robots
+      controls.maxDistance      = 40
+      controls.zoomSpeed        = 1.5
+      controls.panSpeed         = 1.0
+      controls.screenSpacePanning = true  // pan in screen space (more intuitive)
       controls.update()
     })
 
