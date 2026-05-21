@@ -48,15 +48,20 @@ interface Props {
   mode: 'demo' | 'fk' | 'ik'
   angles?: number[]
   target?: { x: number; y: number; phi?: number }
+  customLinkLengths?: number[]
+  isDark?: boolean
   onEEUpdate?: (pos: { x: number; y: number }, angles: number[]) => void
 }
 
-export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const rafRef    = useRef<number>(0)
-  const tRef      = useRef(0)
-  const trailRef  = useRef<{ x: number; y: number }[]>([])
-  const modelRef  = useRef(model)
+export default function RobotCanvas2D({ model, mode, angles, target, customLinkLengths, isDark, onEEUpdate }: Props) {
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const rafRef     = useRef<number>(0)
+  const tRef       = useRef(0)
+  const trailRef   = useRef<{ x: number; y: number }[]>([])
+  const modelRef   = useRef(model)
+  const isDarkRef  = useRef(isDark ?? true)
+
+  useEffect(() => { isDarkRef.current = isDark ?? true }, [isDark])
 
   useEffect(() => {
     if (modelRef.current !== model) {
@@ -68,6 +73,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
 
   const drawFrame = useCallback(
     (ctx: CanvasRenderingContext2D, W: number, H: number, joints: number[], links: number[]) => {
+      const dark = isDarkRef.current
       const totalReach = links.reduce((a, b) => a + b, 0)
       const scale = (Math.min(W, H) * 0.36) / totalReach
       const ox = W * 0.44
@@ -76,12 +82,12 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
       const toC = (wx: number, wy: number) => ({ cx: ox + wx * scale, cy: oy - wy * scale })
 
       // Background
-      ctx.fillStyle = '#0a0a14'
+      ctx.fillStyle = dark ? '#0a0a14' : '#f8fafc'
       ctx.fillRect(0, 0, W, H)
 
       // Minor grid (0.25 m)
       const minor = 0.25 * scale
-      ctx.strokeStyle = '#111827'; ctx.lineWidth = 0.5
+      ctx.strokeStyle = dark ? '#111827' : '#e2e8f0'; ctx.lineWidth = 0.5
       for (let gx = ((ox % minor) + minor) % minor; gx < W; gx += minor) {
         ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke()
       }
@@ -89,7 +95,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
         ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke()
       }
       // Major grid (1 m)
-      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1
+      ctx.strokeStyle = dark ? '#1e293b' : '#cbd5e1'; ctx.lineWidth = 1
       const major = scale
       for (let gx = ((ox % major) + major) % major; gx < W; gx += major) {
         ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke()
@@ -99,24 +105,24 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
       }
 
       // Axes
-      ctx.strokeStyle = '#334155'; ctx.lineWidth = 1.5
+      ctx.strokeStyle = dark ? '#334155' : '#94a3b8'; ctx.lineWidth = 1.5
       ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke()
       ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.stroke()
 
       // Arrow heads
-      ctx.fillStyle = '#475569'
+      ctx.fillStyle = dark ? '#475569' : '#94a3b8'
       ctx.beginPath(); ctx.moveTo(W - 8, oy); ctx.lineTo(W - 18, oy - 5); ctx.lineTo(W - 18, oy + 5); ctx.fill()
       ctx.beginPath(); ctx.moveTo(ox, 8);     ctx.lineTo(ox - 5, 18);      ctx.lineTo(ox + 5, 18);     ctx.fill()
 
       // Axis labels
-      ctx.fillStyle = '#64748b'
+      ctx.fillStyle = dark ? '#64748b' : '#64748b'
       ctx.font = '11px "JetBrains Mono",monospace'
       ctx.fillText('X (m)', W - 52, oy - 10)
       ctx.fillText('Y (m)', ox + 8, 22)
 
       // Metre tick labels
       ctx.font = '9px "JetBrains Mono",monospace'
-      ctx.fillStyle = '#334155'
+      ctx.fillStyle = dark ? '#334155' : '#94a3b8'
       for (let m = -Math.ceil(totalReach * 1.3); m <= Math.ceil(totalReach * 1.3); m++) {
         if (m === 0) continue
         const cp = toC(m, 0)
@@ -128,7 +134,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
       // Workspace boundary
       const rMax = totalReach
       const rMin = Math.max(0, Math.abs(links[0] - links.slice(1).reduce((a, b) => a + b, 0)))
-      ctx.strokeStyle = 'rgba(34,211,238,0.12)'; ctx.lineWidth = 1
+      ctx.strokeStyle = dark ? 'rgba(34,211,238,0.12)' : 'rgba(6,182,212,0.20)'; ctx.lineWidth = 1
       ctx.setLineDash([5, 5])
       ctx.beginPath(); ctx.arc(ox, oy, rMax * scale, 0, Math.PI * 2); ctx.stroke()
       if (rMin > 0.05) { ctx.beginPath(); ctx.arc(ox, oy, rMin * scale, 0, Math.PI * 2); ctx.stroke() }
@@ -151,7 +157,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
         for (let i = 1; i < trail.length; i++) {
           const tp = toC(trail[i].x, trail[i].y); ctx.lineTo(tp.cx, tp.cy)
         }
-        ctx.strokeStyle = 'rgba(0,204,255,0.38)'; ctx.lineWidth = 1.5; ctx.stroke()
+        ctx.strokeStyle = dark ? 'rgba(0,204,255,0.38)' : 'rgba(6,182,212,0.45)'; ctx.lineWidth = 1.5; ctx.stroke()
       }
 
       // Links
@@ -170,17 +176,17 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
         const r  = i === 0 ? 9 : 6
         ctx.fillStyle = jointColors[i] ?? '#2563eb'
         ctx.beginPath(); ctx.arc(jp.cx, jp.cy, r, 0, Math.PI * 2); ctx.fill()
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5
+        ctx.strokeStyle = dark ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.5
         ctx.beginPath(); ctx.arc(jp.cx, jp.cy, r, 0, Math.PI * 2); ctx.stroke()
-        ctx.fillStyle = '#94a3b8'; ctx.font = '10px "JetBrains Mono",monospace'
+        ctx.fillStyle = dark ? '#94a3b8' : '#475569'; ctx.font = '10px "JetBrains Mono",monospace'
         ctx.fillText(`q${i + 1}`, jp.cx + r + 3, jp.cy - r + 2)
       }
 
       // Base
       const base = toC(0, 0)
-      ctx.fillStyle = '#334155'
+      ctx.fillStyle = dark ? '#334155' : '#94a3b8'
       ctx.fillRect(base.cx - 14, base.cy, 28, 10)
-      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1
+      ctx.strokeStyle = dark ? '#1e293b' : '#cbd5e1'; ctx.lineWidth = 1
       for (let hx = 0; hx < 28; hx += 6) {
         ctx.beginPath(); ctx.moveTo(base.cx - 14 + hx, base.cy); ctx.lineTo(base.cx - 18 + hx, base.cy + 10); ctx.stroke()
       }
@@ -191,9 +197,9 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
       g.addColorStop(0, 'rgba(0,204,255,0.35)'); g.addColorStop(1, 'transparent')
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(eeC.cx, eeC.cy, 18, 0, Math.PI * 2); ctx.fill()
       ctx.fillStyle = '#00ccff'
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5
+      ctx.strokeStyle = dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1.5
       ctx.beginPath(); ctx.arc(eeC.cx, eeC.cy, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-      ctx.fillStyle = '#22d3ee'; ctx.font = 'bold 10px "JetBrains Mono",monospace'
+      ctx.fillStyle = dark ? '#22d3ee' : '#0891b2'; ctx.font = 'bold 10px "JetBrains Mono",monospace'
       ctx.fillText(`(${ee.x.toFixed(2)}, ${ee.y.toFixed(2)}) m`, eeC.cx + 10, eeC.cy - 8)
 
       return { ee, joints }
@@ -205,7 +211,9 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const links = LINK_LENGTHS[model]
+    const links = customLinkLengths && customLinkLengths.length > 0
+      ? customLinkLengths
+      : LINK_LENGTHS[model]
     let lastX = NaN, lastY = NaN
 
     const loop = () => {
@@ -226,7 +234,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
       } else if (mode === 'ik' && target) {
         let sol: number[] | null = null
         if (links.length === 2) sol = ik2R(links[0], links[1], target.x, target.y)
-        else                    sol = ik3R(links[0], links[1], links[2], target.x, target.y, target.phi ?? 0)
+        else if (links.length >= 3) sol = ik3R(links[0], links[1], links[2], target.x, target.y, target.phi ?? 0)
         joints = sol ?? Array(links.length).fill(0)
       } else {
         // Demo trajectory
@@ -248,7 +256,7 @@ export default function RobotCanvas2D({ model, mode, angles, target, onEEUpdate 
 
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [model, mode, angles, target, drawFrame, onEEUpdate])
+  }, [model, mode, angles, target, customLinkLengths, drawFrame, onEEUpdate])
 
   return <canvas ref={canvasRef} className="w-full h-full block" />
 }
