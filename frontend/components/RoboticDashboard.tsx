@@ -39,10 +39,12 @@ const STANDARD_ROBOTS: StandardRobot[] = [
   {
     kind: 'standard', id: '2r', label: '2R Planar', sub: 'Revolute–Revolute',
     dof: 2, defaultLinks: [1.5, 1.1],
+    rotationAxes: ['Y', 'Y'],          // both joints sweep in horizontal XZ plane
   },
   {
     kind: 'standard', id: '3r', label: '3R Planar', sub: 'R–R–R',
     dof: 3, defaultLinks: [1.2, 0.85, 0.55],
+    rotationAxes: ['Y', 'Y', 'Y'],     // all joints sweep in horizontal XZ plane
   },
   {
     kind: 'standard', id: 'scara', label: 'SCARA', sub: 'R–R–P · 3 DOF',
