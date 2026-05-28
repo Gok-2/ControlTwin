@@ -105,7 +105,7 @@ export function computeWorkspace3D(joints: WorkspaceJoint[]): Workspace3DResult 
   }
 
   if (n <= 3) {
-    const N = n === 1 ? 180 : n === 2 ? 40 : 25
+    const N = n === 1 ? 60 : n === 2 ? 30 : 16   // 60 / 900 / 4096 points
     const recurse = (depth: number) => {
       if (depth === n) { pushEE(); return }
       const j = joints[depth]
@@ -118,7 +118,7 @@ export function computeWorkspace3D(joints: WorkspaceJoint[]): Workspace3DResult 
     }
     recurse(0)
   } else {
-    const nSamples = n <= 4 ? 20000 : 30000
+    const nSamples = n <= 4 ? 8000 : 12000
     for (let k = 0; k < nSamples; k++) {
       for (let i = 0; i < n; i++) {
         const j = joints[i]

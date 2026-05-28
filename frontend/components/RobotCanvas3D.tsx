@@ -251,15 +251,17 @@ export default function RobotCanvas3D({ joints, jointValues, mode, isDark, onEEU
       }
 
       if (modeRef.current === 'demo') {
-        tRef.current += 0.012
+        tRef.current += 0.008             // ~0.5 Hz sweep — feels deliberate, not frantic
         const t = tRef.current
-        const demo = joints.map((j, i) =>
-          j.type === 'R'
-            ? (i === 0
-                ? Math.PI * 0.55 * Math.sin(t * 0.4)                           // base: ±99° sweep for 3D motion
-                : Math.PI * 0.45 * Math.sin(t * (0.55 + i * 0.18) + i * 1.1)) // links: phase-diverse bending
-            : j.length * (0.25 + 0.4 * Math.abs(Math.sin(t * 0.4)))
-        )
+        // Coordinated reach-and-retract: base sweeps while elbow/wrist follow with
+        // natural phase lag — mimics a pick-and-place trajectory.
+        const demo = joints.map((j, i) => {
+          if (j.type === 'P') return j.length * (0.3 + 0.35 * Math.abs(Math.sin(t * 0.28 + i)))
+          const amp   = Math.PI * Math.max(0.18, 0.52 - i * 0.06)
+          const freq  = 0.30 + i * 0.04
+          const phase = i * Math.PI * 0.60
+          return amp * Math.sin(t * freq + phase)
+        })
         updateArm(demo)
       } else {
         updateArm(valuesRef.current)
