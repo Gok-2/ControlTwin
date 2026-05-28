@@ -1,16 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
+import { type WorkspaceJoint, computeWorkspace3D } from '../lib/workspace'
 
 export type RobotType = '2dof' | '3dof' | 'scara' | 'delta'
 
 interface Props {
-  linkLengths: number[]
-  jointTypes?: ('R' | 'P')[]
+  joints: WorkspaceJoint[]
   label?: string
 }
 
-type ViewMode = '2d' | 'manipulability' | 'constrained'
+type ViewMode = '2d' | '3d' | 'manipulability' | 'constrained'
 
 interface Obstacle { x: number; y: number; r: number; label: string }
 interface JointLimit { min: number; max: number }
@@ -188,7 +188,7 @@ function computeConstrainedWorkspace(
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }: Props) {
+export default function WorkspaceSurface({ joints, label }: Props) {
   const divRef    = useRef<HTMLDivElement>(null)
   const plotlyRef = useRef<any>(null)
   const ready     = useRef(false)
@@ -199,9 +199,16 @@ export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }
   const [isComputing, setIsComputing] = useState(false)
   const [reachFrac, setReachFrac] = useState<string | null>(null)
 
-  const effectiveTypes: ('R' | 'P')[] = linkLengths.map((_, i) => jointTypes[i] ?? 'R')
-  const rLinks = linkLengths.filter((_, i) => effectiveTypes[i] === 'R')
-  const nDof = Math.min(rLinks.length, 3)
+  // Derive planar-compatible arrays from joints (for 2D/manipulability/constrained modes)
+  const linkLengths    = joints.map(j => j.length)
+  const effectiveTypes = joints.map(j => j.type)
+  const rLinks         = linkLengths.filter((_, i) => effectiveTypes[i] === 'R')
+  const nDof           = Math.min(rLinks.length, 3)
+
+  // Stable string key for memoisation — avoids prop-reference churn
+  const jointsKey = joints.map(j =>
+    `${j.type}:${j.length.toFixed(3)}:${j.rotationAxis ?? ''}:${(j.prismaticDir ?? []).join(',')}`
+  ).join('|')
 
   const [limits, setLimits] = useState<JointLimit[]>(Array.from({ length: 3 }, () => ({ min: -180, max: 180 })))
   const setLimit = (i: number, key: 'min' | 'max', deg: number) =>
@@ -211,7 +218,7 @@ export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }
   const workspace = useMemo(
     () => computeWorkspace(linkLengths, effectiveTypes),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [linkLengths.join(','), effectiveTypes.join(',')],
+    [jointsKey],
   )
   wsRef.current = workspace
 
@@ -260,6 +267,53 @@ export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }
     }, { responsive: true, displayModeBar: false })
   }, [label, workspace]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const render3DTaskspace = useCallback(() => {
+    if (!plotlyRef.current || !divRef.current) return
+    setIsComputing(true)
+    setTimeout(() => {
+      const { xs, ys, zs } = computeWorkspace3D(joints)
+      const r = xs.map((x, i) => Math.hypot(x, ys[i], zs[i]))
+      const rMax = Math.max(...r, 0.01)
+      plotlyRef.current.react(
+        divRef.current,
+        [{
+          type: 'scatter3d', x: xs, y: ys, z: zs, mode: 'markers',
+          marker: {
+            size: 1.5, color: r, colorscale: 'Viridis', opacity: 0.55,
+            showscale: true, cmin: 0, cmax: rMax,
+            colorbar: {
+              thickness: 12, len: 0.7, x: 1.01,
+              tickfont: { color: '#475569', size: 8, family: 'JetBrains Mono, monospace' },
+              title: { text: '|r| m', font: { color: '#64748b', size: 9 } },
+            },
+          },
+          hovertemplate: 'x: %{x:.2f}<br>y: %{y:.2f}<br>z: %{z:.2f}<extra></extra>',
+          name: 'Reachable EE',
+        }],
+        {
+          paper_bgcolor: 'transparent',
+          scene: {
+            bgcolor: 'rgba(10,10,20,0)',
+            xaxis: { ...axStyle, title: 'X (m)' },
+            yaxis: { ...axStyle, title: 'Y (m)' },
+            zaxis: { ...axStyle, title: 'Z (m)' },
+            camera: { eye: { x: 1.5, y: 1.2, z: 1.0 } },
+            aspectmode: 'data',
+          },
+          margin: { l: 0, r: 40, t: 44, b: 0 },
+          font: { family: 'JetBrains Mono, monospace', color: '#64748b', size: 9 },
+          title: {
+            text: `3D Taskspace — ${label ?? 'EE Reachable Cloud'}`,
+            font: { color: '#94a3b8', size: 10, family: 'JetBrains Mono, monospace' },
+            x: 0.5, xanchor: 'center',
+          },
+        },
+        { responsive: true, displayModeBar: false },
+      )
+      setIsComputing(false)
+    }, 20)
+  }, [jointsKey, label]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const render3DManip = useCallback(() => {
     if (!plotlyRef.current || !divRef.current || rLinks.length < 2) return
     const { x, y, z, cs, xl, yl, zl, title } = computeManipulability(rLinks)
@@ -301,25 +355,28 @@ export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }
     }, 20)
   }, [rLinks.join(','), limits, obstacles]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const triggerRender = useCallback(() => {
+    if (!ready.current || !plotlyRef.current) return
+    if (viewMode === '2d' && wsRef.current) render2D(wsRef.current)
+    else if (viewMode === '3d')              render3DTaskspace()
+    else if (viewMode === 'manipulability') render3DManip()
+    else                                    render3DConstrained()
+  }, [viewMode, render2D, render3DTaskspace, render3DManip, render3DConstrained])
+
   useEffect(() => {
     let cancelled = false
     import('plotly.js-dist-min').then(mod => {
       if (cancelled) return
       plotlyRef.current = (mod as any).default ?? mod
       ready.current = true
-      if (viewMode === '2d' && wsRef.current) render2D(wsRef.current)
-      else if (viewMode === 'manipulability') render3DManip()
-      else render3DConstrained()
+      triggerRender()
     })
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!ready.current || !plotlyRef.current) return
-    if (viewMode === '2d' && wsRef.current) render2D(wsRef.current)
-    else if (viewMode === 'manipulability') render3DManip()
-    else render3DConstrained()
-  }, [viewMode, workspace, render2D, render3DManip, render3DConstrained])
+    triggerRender()
+  }, [triggerRender])
 
   return (
     <div className="flex flex-col h-full gap-2">
@@ -327,17 +384,18 @@ export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }
       {/* Mode tabs */}
       <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
         {([
-          ['2d',             '2D GEOMETRIC WORKSPACE'],
+          ['2d',             '2D GEOMETRIC'],
+          ['3d',             '3D TASKSPACE'],
           ['manipulability', '3D MANIPULABILITY'],
           ['constrained',    '3D CONSTRAINED'],
-        ] as [ViewMode, string][]).map(([m, label]) => (
+        ] as [ViewMode, string][]).map(([m, lbl]) => (
           <button key={m} onClick={() => setViewMode(m)}
             className={`px-2.5 py-1 text-[8px] font-mono rounded border transition-all ${
               viewMode === m
                 ? 'border-cyan-500/60 text-cyan-400 bg-cyan-500/10'
                 : 'border-slate-800 text-slate-600 hover:border-slate-700 hover:text-slate-400'
             }`}
-          >{label}</button>
+          >{lbl}</button>
         ))}
       </div>
 
@@ -407,6 +465,36 @@ export default function WorkspaceSurface({ linkLengths, jointTypes = [], label }
                 Red = obstacle &nbsp;|&nbsp; Black = unreachable
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── 3D Taskspace info panel ──────────────────────────────────────── */}
+        {viewMode === '3d' && (
+          <div className="w-44 shrink-0 flex flex-col gap-2 text-[9px] font-mono">
+            <div className="rounded border border-slate-800/60 bg-black/20 px-3 py-2 space-y-1.5">
+              <div className="text-[8px] tracking-[0.2em] text-slate-600 uppercase">How It Works</div>
+              <div className="text-[8px] text-slate-600 leading-relaxed">
+                Sample all joint configs<br/>
+                Apply 3D FK (pure math)<br/>
+                Plot EE positions<br/>
+                Color = reach distance
+              </div>
+              <div className="mt-1 px-2 py-1 rounded bg-slate-900/60 border border-slate-800/40 text-[9px] text-cyan-300/80 text-center">
+                p_ee = T₀ⁿ · [0,0,0,1]ᵀ
+              </div>
+              <div className="text-[8px] text-slate-600 mt-1">
+                {joints.length <= 3
+                  ? `Grid: ${joints.length === 1 ? 180 : joints.length === 2 ? '40²=1.6k' : '25³=15.6k'} pts`
+                  : `Monte Carlo: ${joints.length <= 4 ? '20k' : '30k'} pts`
+                }
+              </div>
+            </div>
+            <button onClick={() => ready.current && render3DTaskspace()} disabled={isComputing}
+              className={`w-full py-1.5 rounded font-bold text-[8px] tracking-widest border transition-all ${
+                isComputing ? 'border-cyan-500/20 text-cyan-500/30 cursor-not-allowed' : 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20'
+              }`}>
+              {isComputing ? 'COMPUTING…' : '↻ RECOMPUTE'}
+            </button>
           </div>
         )}
 

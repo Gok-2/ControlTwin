@@ -728,16 +728,7 @@ export default function RoboticDashboard() {
             </div>
             <div className="flex-1 min-h-0 p-3">
               <WorkspaceSurface
-                linkLengths={
-                  isStandard
-                    ? allLinksStd
-                    : (customRobot?.joints.map(j => j.length) ?? [])
-                }
-                jointTypes={
-                  isStandard
-                    ? allLinksStd.map((_, i) => getJt(i))
-                    : (customRobot?.joints.map(j => j.type) ?? [])
-                }
+                joints={isStandard ? standardAs3DJoints : (customRobot?.joints ?? [])}
                 label={currentRobot.label}
               />
             </div>
