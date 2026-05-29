@@ -172,8 +172,8 @@ function ParamField({ label, symbol, unit, value, onChange, min, max, step = 0.0
                      text-slate-200 tabular-nums focus:outline-none focus:border-cyan-500/50 text-right"
         />
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-mono text-slate-500 leading-none">{label}</div>
-          <div className="text-[9px] font-mono text-slate-700 leading-none mt-0.5">{unit}</div>
+          <div className="text-[11px] text-slate-300 leading-none">{label}</div>
+          <div className="text-[9px] font-mono text-slate-500 leading-none mt-0.5">{unit}</div>
         </div>
       </div>
       {hint && (
@@ -433,10 +433,10 @@ export default function Dashboard() {
                 <div className="text-[10px] font-mono text-slate-500 leading-relaxed">
                   v = q̈d + Kr(q̇d−q̇) + α(qd−q)
                 </div>
-                <div className="text-[9px] font-mono text-slate-600 leading-relaxed">
+                <div className="text-[9px] font-mono text-slate-500 leading-relaxed">
                   e = qd−q → ë + Kr·ė + α·e = 0
                 </div>
-                <div className="text-[9px] font-mono text-emerald-500/80 mt-1.5">Requires exact model knowledge</div>
+                <div className="text-[9px] text-emerald-400/90 mt-1.5">Requires exact model knowledge</div>
               </div>
 
               <SectionHead label="System Parameters" />

@@ -83,15 +83,15 @@ export default function Home() {
           Control<span className={isDark ? 'text-cyan-400' : 'text-cyan-600'}>Twin</span>
         </h1>
         <div className="mt-4 flex items-center justify-center gap-3">
-          <span className={`text-sm font-mono font-semibold tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+          <span className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
             Sedef Korkmaz
           </span>
-          <span className={`text-xs font-mono ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>&amp;</span>
-          <span className={`text-sm font-mono font-semibold tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+          <span className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>&amp;</span>
+          <span className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
             Göktuğ Usta
           </span>
         </div>
-        <p className={`mt-3 text-[11px] font-mono ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+        <p className={`mt-3 text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
           Select a simulation module to continue
         </p>
       </div>
@@ -117,11 +117,11 @@ export default function Home() {
           <p className={`text-[9px] font-mono tracking-[0.25em] mb-2 ${isDark ? 'text-cyan-500/60' : 'text-cyan-500/80'}`}>
             MODULE 01
           </p>
-          <h2 className={`text-lg font-mono font-bold mb-2 transition-colors
+          <h2 className={`text-lg font-semibold mb-2 transition-colors
             ${isDark ? 'text-slate-100 group-hover:text-cyan-300' : 'text-slate-800 group-hover:text-cyan-600'}`}>
             Robotic
           </h2>
-          <p className={`text-[11px] font-mono leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             Multi-DOF manipulators — workspace, FK/IK, joint builder.
           </p>
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-mono transition-colors
@@ -149,11 +149,11 @@ export default function Home() {
           <p className={`text-[9px] font-mono tracking-[0.25em] mb-2 ${isDark ? 'text-orange-500/60' : 'text-orange-500/80'}`}>
             MODULE 02
           </p>
-          <h2 className={`text-lg font-mono font-bold mb-2 transition-colors
+          <h2 className={`text-lg font-semibold mb-2 transition-colors
             ${isDark ? 'text-slate-100 group-hover:text-orange-300' : 'text-slate-800 group-hover:text-orange-500'}`}>
             Intelligent Control
           </h2>
-          <p className={`text-[11px] font-mono leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             CTC · MRAC · NN adaptive — live convergence plots.
           </p>
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-mono transition-colors

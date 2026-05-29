@@ -377,7 +377,7 @@ export default function RoboticDashboard() {
             <>
               <SideSection label="CUSTOMIZE ROBOT">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-mono text-slate-400 dark:text-slate-400 leading-relaxed">
+                  <p className="text-xs text-slate-400 leading-relaxed">
                     Adjust parameters — robot updates live.
                   </p>
                   {allLinksStd.map((len, i) => {
@@ -474,7 +474,7 @@ export default function RoboticDashboard() {
                 <>
                   {kinMode === 'demo' && (
                     <div className="space-y-2">
-                      <p className="text-[10px] font-mono text-slate-400 dark:text-slate-400 leading-relaxed">
+                      <p className="text-xs text-slate-400 leading-relaxed">
                         {viewMode3D ? '3D demo trajectory — rotate with mouse.' : 'Sinusoidal demo trajectory. Switch to FK or IK for interactive control.'}
                       </p>
                       {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="END EFFECTOR" pos={eePos} />}
@@ -594,7 +594,7 @@ export default function RoboticDashboard() {
               {isCustom && customRobot && (
                 <div className="space-y-3">
                   {kinMode === 'demo' && (
-                    <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
+                    <p className="text-xs text-slate-400 leading-relaxed">
                       {viewMode3D ? '3D demo — rotate with mouse.' : '2D demo trajectory. Select FK to control joint angles.'}
                     </p>
                   )}
@@ -753,7 +753,7 @@ function FormulaLine({ eq, note }: { eq: string; note?: string }) {
   return (
     <div className="flex items-baseline gap-2">
       <code className="text-[10px] font-mono text-cyan-700 dark:text-cyan-400 whitespace-nowrap">{eq}</code>
-      {note && <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600 leading-snug">{note}</span>}
+      {note && <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-snug">{note}</span>}
     </div>
   )
 }
@@ -870,9 +870,13 @@ function NumInput({ label, value, step, onChange }: { label: string; value: numb
 function EEReadout({ label, pos }: { label: string; pos: { x: number; y: number } }) {
   return (
     <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-      <div className="text-[10px] font-mono text-slate-500 mb-1">{label}</div>
-      <div className="text-xs font-mono text-slate-600 dark:text-slate-400">x: <span className="text-cyan-600 dark:text-cyan-400">{pos.x.toFixed(3)}</span> m</div>
-      <div className="text-xs font-mono text-slate-600 dark:text-slate-400">y: <span className="text-cyan-600 dark:text-cyan-400">{pos.y.toFixed(3)}</span> m</div>
+      <div className="text-[10px] font-mono tracking-widest text-slate-400 mb-1.5">{label}</div>
+      <div className="text-[11px] font-mono text-slate-400 dark:text-slate-400 leading-5">
+        x: <span className="text-cyan-500 dark:text-cyan-400 font-semibold">{pos.x.toFixed(3)}</span> m
+      </div>
+      <div className="text-[11px] font-mono text-slate-400 dark:text-slate-400 leading-5">
+        y: <span className="text-cyan-500 dark:text-cyan-400 font-semibold">{pos.y.toFixed(3)}</span> m
+      </div>
     </div>
   )
 }
@@ -880,10 +884,16 @@ function EEReadout({ label, pos }: { label: string; pos: { x: number; y: number 
 function EEReadout3D({ pos }: { pos: { x: number; y: number; z: number } }) {
   return (
     <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-      <div className="text-[10px] font-mono text-slate-500 mb-1">END EFFECTOR (3D)</div>
-      <div className="text-xs font-mono text-slate-600 dark:text-slate-400">x: <span className="text-cyan-600 dark:text-cyan-400">{pos.x.toFixed(3)}</span> m</div>
-      <div className="text-xs font-mono text-slate-600 dark:text-slate-400">y: <span className="text-cyan-600 dark:text-cyan-400">{pos.y.toFixed(3)}</span> m</div>
-      <div className="text-xs font-mono text-slate-600 dark:text-slate-400">z: <span className="text-cyan-600 dark:text-cyan-400">{pos.z.toFixed(3)}</span> m</div>
+      <div className="text-[10px] font-mono tracking-widest text-slate-400 mb-1.5">END EFFECTOR</div>
+      <div className="text-[11px] font-mono text-slate-400 dark:text-slate-400 leading-5">
+        x: <span className="text-cyan-500 dark:text-cyan-400 font-semibold">{pos.x.toFixed(3)}</span> m
+      </div>
+      <div className="text-[11px] font-mono text-slate-400 dark:text-slate-400 leading-5">
+        y: <span className="text-cyan-500 dark:text-cyan-400 font-semibold">{pos.y.toFixed(3)}</span> m
+      </div>
+      <div className="text-[11px] font-mono text-slate-400 dark:text-slate-400 leading-5">
+        z: <span className="text-cyan-500 dark:text-cyan-400 font-semibold">{pos.z.toFixed(3)}</span> m
+      </div>
     </div>
   )
 }

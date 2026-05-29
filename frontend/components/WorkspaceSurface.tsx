@@ -329,7 +329,7 @@ function StatsChip({
   }[accent]
   return (
     <div className={`flex flex-col px-3 py-1.5 rounded border ${border} bg-black/25`}>
-      <span className="text-[9px] font-mono text-slate-400 leading-tight whitespace-nowrap">{label}</span>
+      <span className="text-[10px] text-slate-400 leading-tight whitespace-nowrap">{label}</span>
       <span className={`text-[13px] font-mono font-bold leading-tight whitespace-nowrap ${valColor}`}>{value}</span>
     </div>
   )
