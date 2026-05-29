@@ -24,14 +24,36 @@ function fk2D(links: number[], angles: number[]): [number, number][] {
   return pts
 }
 
+// ── Workspace statistics ──────────────────────────────────────────────────────
+
+interface WorkspaceStats {
+  rMax:    number
+  rMin:    number
+  area2D:  number        // annular projected area [m²]
+  vol3D:   number | null // only for robots with P joint [m³]
+  pStroke: number
+}
+
+function computeStats(rLinks: number[], joints: WorkspaceJoint[]): WorkspaceStats | null {
+  const N = rLinks.length
+  if (N === 0) return null
+  const rMax    = rLinks.reduce((a, b) => a + b, 0)
+  const rMin    = N <= 1 ? 0
+                : N === 2 ? Math.abs(rLinks[0] - rLinks[1])
+                : Math.max(0, rLinks[0] - rLinks.slice(1).reduce((a, b) => a + b, 0))
+  const area2D  = Math.PI * (rMax * rMax - rMin * rMin)
+  const pStroke = joints.filter(j => j.type === 'P').reduce((a, j) => a + j.length, 0)
+  const vol3D   = pStroke > 0 ? area2D * pStroke : null
+  return { rMax, rMin, area2D, vol3D, pStroke }
+}
+
 // ── Workspace density grid ────────────────────────────────────────────────────
-// Sampled via joint-space grid (deterministic), stored as cell counts.
 
 interface DensityGrid {
-  data:  Uint16Array   // count per cell, row-major, yi=0 = bottom (math Y)
+  data:  Uint16Array
   size:  number
-  maxR:  number        // total reach (outer boundary)
-  range: number        // grid half-width = maxR * 1.04
+  maxR:  number
+  range: number
 }
 
 function computeWorkspaceDensity(rLinks: number[], size = 100): DensityGrid {
@@ -80,7 +102,6 @@ function computeWorkspaceDensity(rLinks: number[], size = 100): DensityGrid {
           mark(ex, ey)
         }
   } else {
-    // Deterministic pseudo-random for 4+ DOF (seed from link lengths)
     let s = rLinks.reduce((a, b, i) => a + Math.round(b * (i + 1) * 997), 0) | 0
     const rand = () => { s = (s * 1664525 + 1013904223) & 0x7FFFFFFF; return s / 0x7FFFFFFF }
     for (let k = 0; k < 10000; k++) {
@@ -94,7 +115,7 @@ function computeWorkspaceDensity(rLinks: number[], size = 100): DensityGrid {
   return { data, size, maxR, range }
 }
 
-// ── Render density as an off-screen bitmap then drawImage ─────────────────────
+// ── Render density bitmap ─────────────────────────────────────────────────────
 
 function renderDensityMap(
   ctx:     CanvasRenderingContext2D,
@@ -120,7 +141,7 @@ function renderDensityMap(
       const c = data[yi * size + xi]
       if (c === 0) continue
       const alpha = Math.round(Math.pow(c / maxCount, 0.40) * 175)
-      const ii    = ((size - 1 - yi) * size + xi) * 4  // flip Y for ImageData (y=0 = top)
+      const ii    = ((size - 1 - yi) * size + xi) * 4
       px[ii]     = 160
       px[ii + 1] = 205
       px[ii + 2] = 235
@@ -144,6 +165,7 @@ function drawWS(
   H:       number,
   rLinks:  number[],
   density: DensityGrid,
+  stats:   WorkspaceStats | null,
 ) {
   ctx.clearRect(0, 0, W, H)
   ctx.fillStyle = '#080810'
@@ -170,17 +192,17 @@ function drawWS(
   ctx.setLineDash([])
   ctx.restore()
 
-  // ── Density fill (sampled, robot-specific) ────────────────────────────────
+  // Density fill
   renderDensityMap(ctx, density, cx, cy, sc)
 
-  // ── Outer boundary circle ─────────────────────────────────────────────────
+  // Outer boundary circle
   ctx.beginPath()
   ctx.arc(cx, cy, maxR * sc, 0, Math.PI * 2)
   ctx.strokeStyle = 'rgba(255,255,255,0.52)'
   ctx.lineWidth   = 1.5
   ctx.stroke()
 
-  // Analytic inner dead-zone boundary (only draw if density confirms dead zone)
+  // Inner dead-zone boundary
   const minR = n === 1 ? maxR
              : n === 2 ? Math.abs(rLinks[0] - rLinks[1])
              : Math.max(0, rLinks[0] - rLinks.slice(1).reduce((a, b) => a + b, 0))
@@ -198,7 +220,7 @@ function drawWS(
   ctx.fillStyle = 'rgba(255,255,255,0.70)'
   ctx.fill()
 
-  // ── Robot arm at display pose ─────────────────────────────────────────────
+  // Robot arm at display pose
   const pts = fk2D(rLinks, DISPLAY_POSE)
 
   ctx.lineCap = 'round'
@@ -229,7 +251,6 @@ function drawWS(
       const arcR = 15 + i * 5
 
       if (i < 4) {
-        // Dashed reference line in cumulative direction
         ctx.save()
         ctx.beginPath()
         ctx.moveTo(px, py)
@@ -240,14 +261,12 @@ function drawWS(
         ctx.stroke()
         ctx.restore()
 
-        // θ arc from cumA to cumA+q
         ctx.beginPath()
         ctx.arc(px, py, arcR, -cumA, -(cumA + q), q > 0)
         ctx.strokeStyle = 'rgba(255,255,255,0.65)'
         ctx.lineWidth   = 1.2
         ctx.stroke()
 
-        // Label at arc midpoint
         const midA = cumA + q * 0.5
         const lx   = px + (arcR + 14) * Math.cos(midA)
         const ly   = py - (arcR + 14) * Math.sin(midA)
@@ -262,7 +281,7 @@ function drawWS(
     }
   }
 
-  // ── Labels ────────────────────────────────────────────────────────────────
+  // ── Labels (bottom) ───────────────────────────────────────────────────────
   ctx.font         = '9px JetBrains Mono, monospace'
   ctx.textBaseline = 'alphabetic'
   const rows = Math.min(n, 4)
@@ -271,13 +290,54 @@ function drawWS(
     ctx.textAlign = 'left'
     ctx.fillText(`θ${i + 1} ∈ [−180°, 180°]`, 10, H - 12 - (rows - 1 - i) * 16)
   }
+
+  // Right side: R_max, R_min, Area
   ctx.textAlign = 'right'
   ctx.fillStyle = 'rgba(130,150,180,0.55)'
-  ctx.fillText(`R_max = ${maxR.toFixed(2)} m`, W - 10, H - 12)
+  ctx.fillText(`R_max = ${maxR.toFixed(3)} m`, W - 10, H - 12)
   if (minR > maxR * 0.04) {
-    ctx.fillText(`R_min = ${minR.toFixed(2)} m`, W - 10, H - 28)
+    ctx.fillText(`R_min = ${minR.toFixed(3)} m`, W - 10, H - 28)
+  }
+  if (stats) {
+    const areaRow = minR > maxR * 0.04 ? H - 44 : H - 28
+    ctx.fillStyle = 'rgba(167,139,250,0.70)'
+    ctx.fillText(`A = π(R²max−R²min) = ${stats.area2D.toFixed(3)} m²`, W - 10, areaRow)
+    if (stats.vol3D !== null) {
+      ctx.fillStyle = 'rgba(52,211,153,0.70)'
+      ctx.fillText(`V = A × d = ${stats.vol3D.toFixed(3)} m³`, W - 10, areaRow - 16)
+    }
   }
   ctx.textAlign = 'left'
+}
+
+// ── Stats chip ────────────────────────────────────────────────────────────────
+
+function StatsChip({
+  label, value, accent,
+}: { label: string; value: string; accent: 'cyan' | 'slate' | 'violet' | 'emerald' }) {
+  const cls = {
+    cyan:    'border-cyan-500/30    bg-cyan-500/5    text-cyan-400',
+    slate:   'border-slate-600/40   bg-slate-500/5   text-slate-400',
+    violet:  'border-violet-500/30  bg-violet-500/5  text-violet-400',
+    emerald: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400',
+  }[accent]
+  return (
+    <div className={`flex items-baseline gap-1.5 px-2 py-1 rounded border ${cls}`}>
+      <span className="text-[8px] text-slate-600 whitespace-nowrap">{label}</span>
+      <span className="text-[10px] font-semibold whitespace-nowrap">{value}</span>
+    </div>
+  )
+}
+
+// ── 3D boundary ring helper ────────────────────────────────────────────────────
+
+function makeRingXZ(r: number, n = 120) {
+  const ts = Array.from({ length: n + 1 }, (_, i) => 2 * Math.PI * i / n)
+  return {
+    x: ts.map(t =>  r * Math.cos(t)),
+    y: ts.map(() => 0),
+    z: ts.map(t => -r * Math.sin(t)),
+  }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -294,14 +354,18 @@ export default function WorkspaceSurface({ joints, label }: Props) {
     `${j.type}:${j.length.toFixed(3)}:${j.rotationAxis ?? ''}:${(j.prismaticDir ?? []).join(',')}`
   ).join('|')
 
-  // Only R-joint lengths matter for the 2D workspace
   const rLinks = useMemo(
     () => joints.filter(j => j.type === 'R').map(j => j.length),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [jointsKey],
   )
 
-  // Precompute density grid — deterministic, changes only when rLinks change
+  const workspaceStats = useMemo(
+    () => computeStats(rLinks, joints),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [jointsKey],
+  )
+
   const density = useMemo(
     () => computeWorkspaceDensity(rLinks, 100),
     [rLinks],
@@ -322,8 +386,8 @@ export default function WorkspaceSurface({ joints, label }: Props) {
       canvas.height = Math.round(H * dpr)
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    drawWS(ctx, W, H, rLinks, density)
-  }, [density]) // eslint-disable-line react-hooks/exhaustive-deps
+    drawWS(ctx, W, H, rLinks, density, workspaceStats)
+  }, [density, workspaceStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (viewMode !== '2d') return
@@ -348,23 +412,89 @@ export default function WorkspaceSurface({ joints, label }: Props) {
     setIsComputing(true)
     setTimeout(() => {
       const { xs, ys, zs } = computeWorkspace3D(joints)
-      const rArr = xs.map((x, i) => Math.hypot(x, ys[i], zs[i]))
-      const rMax = rArr.reduce((a, b) => Math.max(a, b), 0.01)
-      lib.react(
-        div,
-        [{
+
+      // Compute reach range from samples
+      const rArr    = xs.map((x, i) => Math.hypot(x, ys[i], zs[i]))
+      const rMaxSample = rArr.reduce((a, b) => Math.max(a, b), 0.01)
+      const rMinSample = rArr.filter(r => r > 0.01).reduce((a, b) => Math.min(a, b), rMaxSample)
+
+      // Analytic bounds from link lengths
+      const rMaxAnalytic = rLinks.reduce((a, b) => a + b, 0)
+      const rMinAnalytic = rLinks.length <= 1 ? 0
+        : rLinks.length === 2 ? Math.abs(rLinks[0] - rLinks[1])
+        : Math.max(0, rLinks[0] - rLinks.slice(1).reduce((a, b) => a + b, 0))
+      const rMax = Math.max(rMaxSample, rMaxAnalytic)
+      const rMin = rMinAnalytic
+
+      const outerRing = makeRingXZ(rMax)
+      const innerRing = rMin > rMax * 0.04 ? makeRingXZ(rMin) : null
+
+      // Stats annotation text
+      const area2D   = workspaceStats?.area2D ?? Math.PI * (rMax * rMax - rMin * rMin)
+      const vol3D    = workspaceStats?.vol3D
+      const statsText =
+        `R_max: <b>${rMax.toFixed(3)} m</b>  |  R_min: <b>${rMin.toFixed(3)} m</b><br>` +
+        `A₂D = π(R²max−R²min) = <b>${area2D.toFixed(3)} m²</b>` +
+        (vol3D != null ? `<br>V₃D = A₂D × d_stroke = <b>${vol3D.toFixed(3)} m³</b>` : '')
+
+      const traces: any[] = [
+        // Scatter cloud
+        {
           type: 'scatter3d', x: xs, y: ys, z: zs, mode: 'markers',
           marker: {
             size: 2.2, color: rArr, colorscale: 'Viridis', opacity: 0.65,
-            showscale: true, cmin: 0, cmax: rMax,
+            showscale: true, cmin: rMin, cmax: rMax,
             colorbar: {
-              thickness: 10, len: 0.60, x: 1.01,
+              thickness: 10, len: 0.55, x: 1.01,
               tickfont: { color: '#475569', size: 7, family: 'JetBrains Mono,monospace' },
               title: { text: '‖r‖ m', font: { color: '#64748b', size: 8 } },
             },
           },
-          hovertemplate: 'x: %{x:.2f}<br>y: %{y:.2f}<br>z: %{z:.2f}<extra></extra>',
-        }],
+          hovertemplate: 'x: %{x:.3f}<br>y: %{y:.3f}<br>z: %{z:.3f}<extra></extra>',
+          name: 'EE cloud',
+        },
+        // Outer boundary ring
+        {
+          type: 'scatter3d', mode: 'lines',
+          x: outerRing.x, y: outerRing.y, z: outerRing.z,
+          line: { color: 'rgba(34,211,238,0.50)', width: 2.5 },
+          hovertemplate: `R_max = ${rMax.toFixed(3)} m<extra>Outer bound</extra>`,
+          name: `R_max = ${rMax.toFixed(3)} m`,
+          showlegend: true,
+        },
+      ]
+
+      if (innerRing) {
+        traces.push({
+          type: 'scatter3d', mode: 'lines',
+          x: innerRing.x, y: innerRing.y, z: innerRing.z,
+          line: { color: 'rgba(148,163,184,0.40)', width: 1.5 },
+          hovertemplate: `R_min = ${rMin.toFixed(3)} m<extra>Inner bound</extra>`,
+          name: `R_min = ${rMin.toFixed(3)} m`,
+          showlegend: true,
+        })
+      }
+
+      // For SCARA-style: add vertical stroke lines at min/max radius
+      if (workspaceStats?.pStroke && workspaceStats.pStroke > 0) {
+        const stroke = workspaceStats.pStroke
+        // Four vertical lines at ±Rmax on X and Z axes
+        const vxPts = [rMax, rMax, rMin, rMin]
+        const vzPts = [0,    0,    0,    0]
+        vxPts.forEach((vx, i) => {
+          const vz = [rMax, 0, rMin, 0][i]
+          traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [vx, vx], y: [0, -stroke], z: [vz, vz],
+            line: { color: 'rgba(52,211,153,0.35)', width: 1.5 },
+            hoverinfo: 'skip', showlegend: false,
+          })
+        })
+      }
+
+      lib.react(
+        div,
+        traces,
         {
           paper_bgcolor: 'transparent',
           scene: {
@@ -372,7 +502,7 @@ export default function WorkspaceSurface({ joints, label }: Props) {
             xaxis: { ...axStyle, title: 'X (m)' },
             yaxis: { ...axStyle, title: 'Y (m)' },
             zaxis: { ...axStyle, title: 'Z (m)' },
-            camera: { eye: { x: 1.6, y: 1.4, z: 0.6 } },  // slightly top-down view
+            camera: { eye: { x: 1.6, y: 1.4, z: 0.6 } },
             aspectmode: 'data',
           },
           margin: { l: 0, r: 36, t: 38, b: 0 },
@@ -382,6 +512,26 @@ export default function WorkspaceSurface({ joints, label }: Props) {
             font: { color: '#94a3b8', size: 10, family: 'JetBrains Mono,monospace' },
             x: 0.5, xanchor: 'center',
           },
+          legend: {
+            x: 0, y: 1, xanchor: 'left', yanchor: 'top',
+            font: { color: '#64748b', size: 8, family: 'JetBrains Mono,monospace' },
+            bgcolor: 'rgba(8,8,16,0.55)',
+            bordercolor: 'rgba(51,65,85,0.5)',
+            borderwidth: 1,
+          },
+          annotations: [{
+            x: 0.5, y: 0,
+            xref: 'paper', yref: 'paper',
+            xanchor: 'center', yanchor: 'bottom',
+            text: statsText,
+            showarrow: false,
+            font: { size: 8.5, color: '#94a3b8', family: 'JetBrains Mono,monospace' },
+            bgcolor: 'rgba(8,8,16,0.65)',
+            bordercolor: 'rgba(51,65,85,0.45)',
+            borderwidth: 1,
+            borderpad: 5,
+            align: 'center',
+          }],
         },
         { responsive: true, displayModeBar: false },
       )
@@ -429,6 +579,36 @@ export default function WorkspaceSurface({ joints, label }: Props) {
           </button>
         )}
       </div>
+
+      {/* Live stats bar */}
+      {workspaceStats && (
+        <div className="flex items-center gap-2 flex-wrap shrink-0 font-mono">
+          <StatsChip
+            label="R_max"
+            value={`${workspaceStats.rMax.toFixed(3)} m`}
+            accent="cyan"
+          />
+          {workspaceStats.rMin > workspaceStats.rMax * 0.03 && (
+            <StatsChip
+              label="R_min"
+              value={`${workspaceStats.rMin.toFixed(3)} m`}
+              accent="slate"
+            />
+          )}
+          <StatsChip
+            label="A₂D = π(R²max−R²min)"
+            value={`${workspaceStats.area2D.toFixed(3)} m²`}
+            accent="violet"
+          />
+          {workspaceStats.vol3D !== null && (
+            <StatsChip
+              label="V₃D = A₂D × d_stroke"
+              value={`${workspaceStats.vol3D.toFixed(3)} m³`}
+              accent="emerald"
+            />
+          )}
+        </div>
+      )}
 
       {/* Viz area */}
       <div className="relative flex-1 min-h-0 rounded overflow-hidden">
