@@ -315,16 +315,22 @@ function drawWS(
 function StatsChip({
   label, value, accent,
 }: { label: string; value: string; accent: 'cyan' | 'slate' | 'violet' | 'emerald' }) {
-  const cls = {
-    cyan:    'border-cyan-500/30    bg-cyan-500/5    text-cyan-400',
-    slate:   'border-slate-600/40   bg-slate-500/5   text-slate-400',
-    violet:  'border-violet-500/30  bg-violet-500/5  text-violet-400',
-    emerald: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400',
+  const border = {
+    cyan:    'border-cyan-500/35',
+    slate:   'border-slate-500/35',
+    violet:  'border-violet-500/35',
+    emerald: 'border-emerald-500/35',
+  }[accent]
+  const valColor = {
+    cyan:    'text-cyan-300',
+    slate:   'text-slate-200',
+    violet:  'text-violet-300',
+    emerald: 'text-emerald-300',
   }[accent]
   return (
-    <div className={`flex items-baseline gap-1.5 px-2 py-1 rounded border ${cls}`}>
-      <span className="text-[8px] text-slate-600 whitespace-nowrap">{label}</span>
-      <span className="text-[10px] font-semibold whitespace-nowrap">{value}</span>
+    <div className={`flex flex-col px-3 py-1.5 rounded border ${border} bg-black/25`}>
+      <span className="text-[9px] font-mono text-slate-400 leading-tight whitespace-nowrap">{label}</span>
+      <span className={`text-[13px] font-mono font-bold leading-tight whitespace-nowrap ${valColor}`}>{value}</span>
     </div>
   )
 }

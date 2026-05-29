@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { RobotArmBg } from './RobotArmBg'
 import {
   runSimulation, analyzeStability, DEFAULT_PARAMS,
   type SimParams, type SimResult,
@@ -149,7 +150,7 @@ function NNDiagram({ hiddenSize }: { hiddenSize: number }) {
 
 function SectionHead({ label }: { label: string }) {
   return (
-    <div className="text-[9px] font-mono tracking-[0.2em] text-slate-600 uppercase mt-4 mb-2">
+    <div className="text-[9px] font-mono tracking-[0.2em] text-slate-400 uppercase mt-4 mb-2">
       {label}
     </div>
   )
@@ -205,10 +206,10 @@ function StatCard({ label, value, unit, color }: {
   label: string; value: string; unit: string; color: string
 }) {
   return (
-    <div className="rounded border border-slate-800 bg-black/30 px-3 py-2.5">
-      <div className="text-[8px] font-mono text-slate-600 mb-1">{label}</div>
+    <div className="rounded border border-slate-700/60 bg-black/30 px-3 py-2.5">
+      <div className="text-[9px] font-mono text-slate-400 mb-1">{label}</div>
       <div className="text-base font-mono font-bold tabular-nums" style={{ color }}>{value}</div>
-      <div className="text-[8px] font-mono text-slate-700">{unit}</div>
+      <div className="text-[8px] font-mono text-slate-500">{unit}</div>
     </div>
   )
 }
@@ -233,8 +234,8 @@ function ConvergenceBar({ label, current, target, color }: {
   return (
     <div className="mb-1.5">
       <div className="flex justify-between text-[8px] font-mono mb-0.5">
-        <span className="text-slate-600">{label}</span>
-        <span style={{ color }}>{current.toFixed(3)} <span className="text-slate-700">/ {target}</span></span>
+        <span className="text-slate-400">{label}</span>
+        <span style={{ color }}>{current.toFixed(3)} <span className="text-slate-500">/ {target}</span></span>
       </div>
       <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all duration-300"
@@ -378,10 +379,10 @@ export default function Dashboard() {
                       bg-black/60 backdrop-blur border-b border-slate-800/80">
         <div className="flex items-center gap-4">
           <button onClick={() => router.push('/')}
-            className="text-[10px] font-mono text-slate-600 hover:text-orange-400 transition-colors">
+            className="text-[10px] font-mono text-slate-400 hover:text-orange-400 transition-colors">
             ← HOME
           </button>
-          <span className="text-slate-800">|</span>
+          <span className="text-slate-700">|</span>
           <span className="text-[11px] font-mono font-bold tracking-widest text-orange-400">
             INTELLIGENT CONTROL
           </span>
@@ -608,10 +609,15 @@ export default function Dashboard() {
       </div>
 
       {/* ── Right chart area ────────────────────────────────────────────────── */}
-      <div className="flex-1 pt-10 overflow-y-auto bg-[#0a0a0f]">
+      <div className="relative flex-1 pt-10 overflow-y-auto bg-[#0a0a0f]">
+        {/* Background robot arm */}
+        <div className="absolute bottom-0 right-2 w-44 pointer-events-none z-0 text-orange-400/60">
+          <RobotArmBg opacity={0.04} className="w-full h-full" />
+        </div>
+
         {!hasResult ? (
           <div className="h-full flex flex-col items-center justify-center gap-4">
-            <div className="text-[10px] font-mono text-slate-700 tracking-widest">NO SIMULATION RESULT YET</div>
+            <div className="text-[10px] font-mono text-slate-500 tracking-widest">NO SIMULATION RESULT YET</div>
             <div className="flex gap-3">
               <InfoBadge text="Set parameters" color="#f97316" />
               <InfoBadge text="Choose method" color="#22d3ee" />

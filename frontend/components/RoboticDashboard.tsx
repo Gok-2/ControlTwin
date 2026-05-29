@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import RobotCanvas2D, { type RobotModel, LINK_LENGTHS, ik2R, ik3R } from './RobotCanvas2D'
 import RobotCanvas3D, { type CustomJoint } from './RobotCanvas3D'
 import WorkspaceSurface from './WorkspaceSurface'
+import { RobotArmBg } from './RobotArmBg'
 import { useTheme } from '@/context/ThemeContext'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
@@ -288,7 +289,7 @@ export default function RoboticDashboard() {
                   <span className="text-[10px] mt-0.5 opacity-60">{r.kind === 'custom' ? '◆' : '⬡'}</span>
                   <div>
                     <div className="font-semibold text-[13px]">{r.label}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                       {r.dof}-DOF · {r.kind === 'custom' ? 'Custom Robot' : (r as StandardRobot).sub}
                     </div>
                   </div>
@@ -376,7 +377,7 @@ export default function RoboticDashboard() {
             <>
               <SideSection label="CUSTOMIZE ROBOT">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
+                  <p className="text-[10px] font-mono text-slate-400 dark:text-slate-400 leading-relaxed">
                     Adjust parameters — robot updates live.
                   </p>
                   {allLinksStd.map((len, i) => {
@@ -473,7 +474,7 @@ export default function RoboticDashboard() {
                 <>
                   {kinMode === 'demo' && (
                     <div className="space-y-2">
-                      <p className="text-[10px] font-mono text-slate-500 dark:text-slate-600 leading-relaxed">
+                      <p className="text-[10px] font-mono text-slate-400 dark:text-slate-400 leading-relaxed">
                         {viewMode3D ? '3D demo trajectory — rotate with mouse.' : 'Sinusoidal demo trajectory. Switch to FK or IK for interactive control.'}
                       </p>
                       {viewMode3D ? <EEReadout3D pos={ee3DPos} /> : <EEReadout label="END EFFECTOR" pos={eePos} />}
@@ -610,8 +611,8 @@ export default function RoboticDashboard() {
 
           {/* Link lengths summary */}
           {isStandard && standardRobot && (
-            <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800/60 shrink-0 mt-auto">
-              <div className="text-[10px] font-mono text-slate-400 dark:text-slate-700 leading-relaxed">
+            <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-700/50 shrink-0 mt-auto">
+              <div className="text-[10px] font-mono text-slate-500 dark:text-slate-500 leading-relaxed">
                 {allLinksStd.map((l, i) => {
                   const label = getJt(i) === 'P' ? `d${i+1}` : `L${i+1}`
                   return `${label}=${l.toFixed(2)}`
@@ -623,6 +624,11 @@ export default function RoboticDashboard() {
 
         {/* Main canvas */}
         <div className="relative flex-1 h-full">
+
+          {/* Background robot arm silhouette */}
+          <div className="absolute bottom-0 right-4 w-56 pointer-events-none z-0 text-cyan-400 dark:text-cyan-300">
+            <RobotArmBg opacity={0.045} className="w-full h-full" />
+          </div>
 
           {/* Standard robot — 2D */}
           {isStandard && standardRobot && !viewMode3D && (
@@ -777,12 +783,12 @@ function SideSection({ label, children, collapsible, open, onToggle }: {
     <div className="px-3 pt-3 pb-2">
       <button
         className={`w-full flex items-center justify-between text-[10px] font-mono tracking-[0.18em] mb-2 uppercase
-                    text-slate-400 dark:text-slate-500
-                    ${collapsible ? 'hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer' : 'cursor-default'}`}
+                    text-slate-400 dark:text-slate-400
+                    ${collapsible ? 'hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer' : 'cursor-default'}`}
         onClick={collapsible ? onToggle : undefined}
       >
         <span>{label}</span>
-        {collapsible && <span className="text-slate-300 dark:text-slate-700 text-[10px]">{open ? '▲' : '▼'}</span>}
+        {collapsible && <span className="text-slate-400 dark:text-slate-500 text-[10px]">{open ? '▲' : '▼'}</span>}
       </button>
       {children}
     </div>
